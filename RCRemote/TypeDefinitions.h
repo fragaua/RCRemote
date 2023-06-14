@@ -13,8 +13,7 @@
 #define TYPEDEFINITIONS_H
 
 #include <Joystick_if.h>
-#include "PinDefinitions.h"
-#include "RadioPayloadTypes.h"
+#include "Configuration.h"
 
 /*
  * Remote input related definitions and declarations
@@ -29,6 +28,11 @@
 #define BUTTON_RIGHT_ZERO_IDX 2
 #define BUTTON_RIGHT_ONE_IDX  3
 
+typedef struct Input_t{
+  uint8_t  u8_Pin;
+  uint16_t u16_Value;
+  bool     b_Analog;
+}Input_t;
 
 typedef struct Pot{
   uint8_t     u8_Pin;
@@ -44,6 +48,12 @@ typedef struct Button{
   uint8_t      u8_Pin;
   uint8_t      u8_Value;
 }Button;
+
+typedef struct JoystickData{
+  uint16_t    u16_Value_X;
+  uint16_t    u16_Value_Y;
+  bool        b_Value_Sw;
+}JoystickData;
 
 typedef struct Joystick{
   uint8_t      u8_Pin_Joystick_X;
