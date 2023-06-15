@@ -54,3 +54,4 @@ dkms.conf
 # Visual code
 
 *.vscode*
+RCRemote_workspace.code-workspace
