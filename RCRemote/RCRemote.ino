@@ -2,6 +2,7 @@
 #include <Joystick_if.h>
 #include "Configuration.h"
 #include "RemoteDisplay.h"
+#include <ResponsiveAnalogRead.h>
 // #include <Wire.h>
 // #include <Adafruit_SSD1306.h>
 // #include <Adafruit_GFX.h>
@@ -29,9 +30,10 @@
 #define DEBUG_BUTTONS ON
 
 
-#define BATTERY_INDICATION       OFF
-#define OLED_SCREEN              ON
-#define OLED_SCREEN_LOW_MEM_MODE ON
+#define BATTERY_INDICATION        OFF
+#define OLED_SCREEN               ON
+#define OLED_SCREEN_LOW_MEM_MODE  ON
+#define RESPONSIVE_ANALOG_READ    ON
 
 /*
 * NRF24L01 RFCom related
@@ -45,6 +47,7 @@ const byte RF_Address[RF_ADDRESS_SIZE] = "1Node";
 /* Input channels and controller input declarations*/
 #define MAX_NAME_CHAR 3u
 #define N_CHANNELS 7u // 17/06 -> Stopped considering joystick buttons 
+#define N_ANALOG_CHANNELS 5u
 #define N_BUTTONS  3u 
 #define N_VIEW_BUTTONS 3u
 #define MAX_CHAR_LEN 4u
@@ -96,6 +99,10 @@ InternalRemoteInputs_t InternalRemoteInputs[N_BUTTONS];
 
 View_t_Buttons ViewButtons[N_VIEW_BUTTONS] = {{true, false, "Mon"}, {false, false, "Trm"}, {false, false, "Chn"}};
 
+#if RESPONSIVE_ANALOG_READ == ON
+ResponsiveAnalogRead ResponsiveAnalogs[N_ANALOG_CHANNELS];
+#endif
+
 #if BATTERY_INDICATION == ON
 #include <BatteryIndication.h>
 #define R1 10000
@@ -129,6 +136,9 @@ void v_Remote_Modules_Init()
   for(i = 0; i < N_CHANNELS; i++)
   {
     pinMode(RemoteInputs[i].u8_Pin,    RemoteInputs[i].b_Analog ? INPUT : INPUT_PULLUP);
+#if RESPONSIVE_ANALOG_READ == ON
+    ResponsiveAnalogs[i].begin(RemoteInputs[i].u8_Pin, true);
+#endif
   }
 
   pinMode(POT_LEFT_ACTIVATE_PIN,       OUTPUT);
@@ -192,6 +202,11 @@ void v_Read_Inputs(Input_t *const p_RemoteInput)
     if(RemoteInputs[i].b_Analog)
     {
       RemoteInputs[i].u16_Value = (uint16_t)analogRead(RemoteInputs[i].u8_Pin);
+
+#if RESPONSIVE_ANALOG_READ == ON
+        ResponsiveAnalogs[i].update(RemoteInputs[i].u16_Value);
+        RemoteInputs[i].u16_Value = ResponsiveAnalogs[i].getValue();
+#endif
     }
     else
     {
@@ -300,7 +315,6 @@ void v_updateOptionButtons(View_t_Buttons* ViewButtons, InternalRemoteInputs_t I
  
   if(InternalRemoteInputs[INTERNAL_INPUT_LEFT_IDX])
   {
-    Serial.println(F("Clicked"));
     ViewButtons[u8_CurrentlySelectedButton].b_CurrentlySelected = false;
     ViewButtons[(u8_CurrentlySelectedButton+1) % N_VIEW_BUTTONS].b_CurrentlySelected = true;
   }
@@ -329,6 +343,7 @@ void setup() {
     Serial.println(F("SSD1306 allocation failed"));
     for(;;); // Don't proceed, loop forever
   }
+
 
 #if OLED_SCREEN_LOW_MEM_MODE == OFF
   v = View();
