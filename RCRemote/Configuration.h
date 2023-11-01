@@ -15,6 +15,23 @@
 
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
+#include <Arduino.h>
+
+#define ON  1u
+#define OFF 0u
+
+
+/*
+*
+*   Feature availability
+*
+*/
+
+#define BATTERY_INDICATION        OFF
+#define OLED_SCREEN               ON
+#define OLED_SCREEN_LOW_MEM_MODE  ON
+#define RESPONSIVE_ANALOG_READ    ON
+
 
 /* 
  *  PIN Definitions  
@@ -53,5 +70,30 @@
 #define RF24_MISO_PIN             12 // SPI output. Used to send data to uC
 #define RF24_SCK_PIN              13 // Serial clock
 
+
+/* Input channels and controller input declarations*/ 
+
+#define MAX_NAME_CHAR 3u
+#define N_CHANNELS 7u // 17/06 -> Stopped considering joystick buttons 
+#define N_ANALOG_CHANNELS 5u
+#define N_BUTTONS  3u 
+#define N_VIEW_BUTTONS 3u
+#define MAX_CHAR_LEN 4u
+
+
+
+/* Radio configuration */ // TODO: Add here other configurations like PA level and data rate
+#define TX_TIME_LONG    1000 // in us. Time to trigger LED bklinking if tx was too long
+#define TX_BLINK_TIME   2000000 // in usecs.  LED blink time
+#define TX_CONNECTION_LOST_COUNTER_THRESHOLD 10 // After this ammount of successive failed sends, declare connection lost
+
+
+typedef struct Input_t{
+  uint8_t  u8_Pin;
+  uint16_t u16_Value;
+  uint16_t u16_Trim;
+  bool     b_Analog;
+  char     c_Name[MAX_NAME_CHAR+1];
+}Input_t;
 
 #endif

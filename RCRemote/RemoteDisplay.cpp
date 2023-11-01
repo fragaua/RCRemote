@@ -11,6 +11,7 @@
 
 #include "RemoteDisplay.h"
 
+
 /* Helper functions */
 
 /* Typically faster than mod and avoids incrementing the indices until overflow*/
