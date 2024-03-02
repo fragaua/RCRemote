@@ -37,11 +37,11 @@
  *  PIN Definitions  
  */
 
-#define JOYSTICK_RIGHT_AXIS_X_PIN A0
-#define JOYSTICK_RIGHT_AXIS_Y_PIN A1
+#define JOYSTICK_RIGHT_AXIS_X_PIN A1
+#define JOYSTICK_RIGHT_AXIS_Y_PIN A0
 #define JOYSTICK_RIGHT_SWITCH_PIN 7
-#define JOYSTICK_LEFT_AXIS_X_PIN  A2
-#define JOYSTICK_LEFT_AXIS_Y_PIN  A3
+#define JOYSTICK_LEFT_AXIS_X_PIN  A3
+#define JOYSTICK_LEFT_AXIS_Y_PIN  A2
 #define JOYSTICK_LEFT_SWITCH_PIN  6
 
 #define BUTTON_ANALOG_PIN        A6
@@ -80,6 +80,10 @@
 #define N_VIEW_BUTTONS 3u
 #define MAX_CHAR_LEN 4u
 
+#define ANALOG_MAX_VALUE 1023
+#define ANALOG_MIN_VALUE 0
+#define ANALOG_HALF_VALUE 512
+
 
 
 /* Radio configuration */ // TODO: Add here other configurations like PA level and data rate
@@ -89,11 +93,13 @@
 
 
 typedef struct Input_t{
-  uint8_t  u8_Pin;
-  uint16_t u16_Value;
-  uint16_t u16_Trim;
-  bool     b_Analog;
-  char     c_Name[MAX_NAME_CHAR+1];
+  uint8_t  u8_Pin;          // Current configured pin on the board.
+  uint16_t u16_Value;       // Current, actual converted value.
+  uint8_t  u8_Trim;         // Middle point adjustment. 
+  uint8_t  u8_MinValueOffset; // Minimum value Difference, for end-point adjustment. Not actual value in order to save memory and avoid u16 type. 
+  uint8_t  u8_MaxValueOffset; // Maximum value Difference, for end-point adjustment.
+  bool     b_Analog;        // Analog input or not
+  char     c_Name[MAX_NAME_CHAR+1]; // Channel name
 }Input_t;
 
 #endif

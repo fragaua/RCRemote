@@ -17,7 +17,7 @@ void v_updateOptionButtons(const Adafruit_SSD1306* const display, View_t_Buttons
     ViewButtons[(u8_CurrentlySelectedButton+1) % N_VIEW_BUTTONS].b_CurrentlySelected = true;
   }
 
-  // TODO: Detect button rising edges
+  // TODO: Detect button rising edges, debounce input
   // TODO: Fix button VDivs.
 }
 

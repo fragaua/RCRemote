@@ -10,10 +10,6 @@
   #endif
 #endif
 
-#include <ResponsiveAnalogRead.h>
-
-
-
 
 
 #define DEBUG_BUTTONS ON
@@ -47,14 +43,25 @@ typedef struct RFPayload{
 }RFPayload;
 
 
-Input_t RemoteInputs[N_CHANNELS] = {{JOYSTICK_LEFT_AXIS_X_PIN,  0u, 0u, true, "JLX"}, {JOYSTICK_LEFT_AXIS_Y_PIN,  0u, 0u, true, "JLY"}, /*{JOYSTICK_LEFT_SWITCH_PIN,  0u, false, "JLB"},*/
-                                    {JOYSTICK_RIGHT_AXIS_X_PIN, 0u, 0u, true, "JRX"}, {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u, 0u, true, "JRY"}, /*{JOYSTICK_RIGHT_SWITCH_PIN, 0u, false, "JRB"},*/
-                                    {POT_RIGHT_PIN,             0u, 0u, true, "PR"},  {SWITCH_SP_LEFT_PIN,        0u, 0u, false, "SWL"},{SWITCH_SP_RIGHT_PIN,       0u, 0u, false, "SWR"}};
+// Declare and configure each input on the remote controller.
+// TODO: Later, the menus and inputs should be used to configure trimming and end-point adjustment on the fly.
+// They shouldn't be configured here like some of the inputs are.
+                                   // Pin, Value, Trim, Min, Max, isAnalog, Channel Name  
+Input_t RemoteInputs[N_CHANNELS] = {{JOYSTICK_LEFT_AXIS_X_PIN,  0u, 0u, 0u,   0u,   true, "JLX"}, 
+                                    {JOYSTICK_LEFT_AXIS_Y_PIN,  0u, 0u, 0u,   0u,   true, "JLY"}, 
+                                    /*{JOYSTICK_LEFT_SWITCH_PIN,  0u, false, "JLB"},*/
+                                    {JOYSTICK_RIGHT_AXIS_X_PIN, 0u, 0u, 255u, 255u, true, "JRX"}, 
+                                    {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u, 0u, 0u,   0u,   true, "JRY"}, 
+                                    /*{JOYSTICK_RIGHT_SWITCH_PIN, 0u, false, "JRB"},*/
+                                    {POT_RIGHT_PIN,             0u, 0u, 0u,   0u,   true, "PR"},  
+                                    {SWITCH_SP_LEFT_PIN,        0u, 0u, 0u,   0u,   false, "SWL"}, 
+                                    {SWITCH_SP_RIGHT_PIN,       0u, 0u, 0u,   0u,   false, "SWR"}};
 
 
 
 
 #if RESPONSIVE_ANALOG_READ == ON
+#include <ResponsiveAnalogRead.h>
 ResponsiveAnalogRead ResponsiveAnalogs[N_ANALOG_CHANNELS];
 #endif
 
@@ -70,9 +77,9 @@ RFPayload payload;
 RF24 Radio;  // using pin 7 for the CE pin, and pin 8 for the CSN pin
 
 
-bool b_ConnectionLost = false;
 
-int freeRam () {
+int freeRam () 
+{
   extern int __heap_start, *__brkval; 
   int v; 
   return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
@@ -104,7 +111,7 @@ void v_Remote_Modules_Init()
   if(b_Success == true)
   {
     Serial.println(F("Initialized radio!"));
-    Radio.printDetails(); // Turn on TX Mode
+    //Radio.printDetails();
   }
   else
   {
@@ -120,6 +127,7 @@ void v_Remote_Modules_Init()
 
 void v_Compute_Button_Voltage_Dividers(InternalRemoteInputs_t *Buttons)
 {
+  // TODO: Debounce button input
   int i_Analog_Read = analogRead(BUTTON_ANALOG_PIN);
   uint8_t i;
   for(i = 0; i < N_BUTTONS; i++)
@@ -151,17 +159,33 @@ void v_Read_Inputs(Input_t *const p_RemoteInput)
     if(RemoteInputs[i].b_Analog)
     {
       RemoteInputs[i].u16_Value = (uint16_t)analogRead(RemoteInputs[i].u8_Pin);
-
+      v_Process_Trimming(&RemoteInputs[i]); // Trimming is processed before adjustment to ensure trim offset doesn't overload the min-max values
+      v_Process_Endpoint_Adjustment(&RemoteInputs[i]);
 #if RESPONSIVE_ANALOG_READ == ON
-        ResponsiveAnalogs[i].update(RemoteInputs[i].u16_Value);
-        RemoteInputs[i].u16_Value = ResponsiveAnalogs[i].getValue();
+      ResponsiveAnalogs[i].update(RemoteInputs[i].u16_Value);
+      RemoteInputs[i].u16_Value = ResponsiveAnalogs[i].getValue();
 #endif
+
     }
     else
     {
       RemoteInputs[i].u16_Value = map((uint16_t)digitalRead(RemoteInputs[i].u8_Pin), 0, 1, 0, 1023);
     }
   }
+}
+
+/* Processes endpoint adjustment and overrides provided value if value is outside current configured endpoints */
+void v_Process_Endpoint_Adjustment(Input_t* p_input)
+{
+  uint16_t u16_MaxValue = (ANALOG_MAX_VALUE - p_input->u8_MaxValueOffset);
+  uint16_t u16_MinValue = (ANALOG_MIN_VALUE + p_input->u8_MinValueOffset);
+  p_input->u16_Value = (p_input->u16_Value > u16_MaxValue) ? u16_MaxValue : p_input->u16_Value; 
+  p_input->u16_Value = (p_input->u16_Value < u16_MinValue) ? u16_MinValue : p_input->u16_Value; 
+}
+/* Process trimming and add the current trim offset to the actual value.*/
+void v_Process_Trimming(Input_t* p_input)
+{
+  p_input->u16_Value += p_input->u8_Trim;
 }
 
 void v_Build_Payload(const Input_t * p_RemoteInput, RFPayload *p_payload)
@@ -229,8 +253,8 @@ void loop() {
 #endif
   static int i32_previous_tx_time;
   static uint8_t u8_not_received_counter = 0;
+  bool b_ConnectionLost = false;
   
-
   v_Read_Inputs(RemoteInputs);
   v_Compute_Button_Voltage_Dividers(InternalRemoteInputs);
   v_Build_Payload(RemoteInputs, &payload);
@@ -295,4 +319,5 @@ void loop() {
     Serial.println(battery.getCurrentVoltage());
 #endif
 
+  delay(20);
 }
