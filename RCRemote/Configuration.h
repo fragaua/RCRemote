@@ -78,7 +78,7 @@
 #define N_ANALOG_CHANNELS 5u
 #define N_BUTTONS  3u 
 #define N_VIEW_BUTTONS 3u
-#define MAX_CHAR_LEN 4u
+#define MAX_CHAR_LEN 2u
 
 #define ANALOG_MAX_VALUE 1023
 #define ANALOG_MIN_VALUE 0
@@ -98,6 +98,7 @@ typedef struct Input_t{
   uint8_t  u8_Trim;         // Middle point adjustment. 
   uint8_t  u8_MinValueOffset; // Minimum value Difference, for end-point adjustment. Not actual value in order to save memory and avoid u16 type. 
   uint8_t  u8_MaxValueOffset; // Maximum value Difference, for end-point adjustment.
+  bool     b_InvertInput;
   bool     b_Analog;        // Analog input or not
   char     c_Name[MAX_NAME_CHAR+1]; // Channel name
 }Input_t;

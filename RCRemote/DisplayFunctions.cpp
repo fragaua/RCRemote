@@ -41,6 +41,8 @@ void v_drawAnalogs(const Adafruit_SSD1306* const display, const Input_t*  eChann
     display->setFont();
     display->setTextColor(WHITE);
 
+    // TODO: Draw trim and endpoints
+
   }
 }
 

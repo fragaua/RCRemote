@@ -18,7 +18,6 @@
 /*
 * NRF24L01 RFCom related
 */
-
 #define RF_ADDRESS_SIZE 6
 const byte RF_Address[RF_ADDRESS_SIZE] = "1Node";
 
@@ -46,16 +45,16 @@ typedef struct RFPayload{
 // Declare and configure each input on the remote controller.
 // TODO: Later, the menus and inputs should be used to configure trimming and end-point adjustment on the fly.
 // They shouldn't be configured here like some of the inputs are.
-                                   // Pin, Value, Trim, Min, Max, isAnalog, Channel Name  
-Input_t RemoteInputs[N_CHANNELS] = {{JOYSTICK_LEFT_AXIS_X_PIN,  0u, 0u, 0u,   0u,   true, "JLX"}, 
-                                    {JOYSTICK_LEFT_AXIS_Y_PIN,  0u, 0u, 0u,   0u,   true, "JLY"}, 
+                                   // Pin, Value, Trim, Min, Max, isAnalog, Invert, Channel Name  
+Input_t RemoteInputs[N_CHANNELS] = {{JOYSTICK_LEFT_AXIS_X_PIN,  0u, 0u, 0u,   0u,   false, true, "JLX"}, 
+                                    {JOYSTICK_LEFT_AXIS_Y_PIN,  0u, 0u, 255u, 255u, false, true, "JLY"}, 
                                     /*{JOYSTICK_LEFT_SWITCH_PIN,  0u, false, "JLB"},*/
-                                    {JOYSTICK_RIGHT_AXIS_X_PIN, 0u, 0u, 255u, 255u, true, "JRX"}, 
-                                    {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u, 0u, 0u,   0u,   true, "JRY"}, 
+                                    {JOYSTICK_RIGHT_AXIS_X_PIN, 0u, 0u, 255u, 255u, true,  true, "JRX"}, 
+                                    {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u, 0u, 0u,   0u,   false, true, "JRY"}, 
                                     /*{JOYSTICK_RIGHT_SWITCH_PIN, 0u, false, "JRB"},*/
-                                    {POT_RIGHT_PIN,             0u, 0u, 0u,   0u,   true, "PR"},  
-                                    {SWITCH_SP_LEFT_PIN,        0u, 0u, 0u,   0u,   false, "SWL"}, 
-                                    {SWITCH_SP_RIGHT_PIN,       0u, 0u, 0u,   0u,   false, "SWR"}};
+                                    {POT_RIGHT_PIN,             0u, 0u, 0u,   0u,   false, true, "PR"},  
+                                    {SWITCH_SP_LEFT_PIN,        0u, 0u, 0u,   0u,   false, false, "SWL"}, 
+                                    {SWITCH_SP_RIGHT_PIN,       0u, 0u, 0u,   0u,   false, false, "SWR"}};
 
 
 
@@ -88,6 +87,7 @@ int freeRam ()
 
 void v_Remote_Modules_Init()
 {
+  
   uint8_t i;
   for(i = 0; i < N_CHANNELS; i++)
   {
@@ -159,6 +159,7 @@ void v_Read_Inputs(Input_t *const p_RemoteInput)
     if(RemoteInputs[i].b_Analog)
     {
       RemoteInputs[i].u16_Value = (uint16_t)analogRead(RemoteInputs[i].u8_Pin);
+      v_Invert_Input(&RemoteInputs[i]);
       v_Process_Trimming(&RemoteInputs[i]); // Trimming is processed before adjustment to ensure trim offset doesn't overload the min-max values
       v_Process_Endpoint_Adjustment(&RemoteInputs[i]);
 #if RESPONSIVE_ANALOG_READ == ON
@@ -186,6 +187,14 @@ void v_Process_Endpoint_Adjustment(Input_t* p_input)
 void v_Process_Trimming(Input_t* p_input)
 {
   p_input->u16_Value += p_input->u8_Trim;
+}
+
+void v_Invert_Input(Input_t* p_input)
+{
+  if(p_input->b_InvertInput)
+  {
+    p_input->u16_Value = map(p_input->u16_Value, ANALOG_MIN_VALUE, ANALOG_MAX_VALUE, ANALOG_MAX_VALUE, ANALOG_MIN_VALUE);
+  }
 }
 
 void v_Build_Payload(const Input_t * p_RemoteInput, RFPayload *p_payload)
