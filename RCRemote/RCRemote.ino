@@ -13,7 +13,7 @@
   #endif
 #endif
 
-typedef U8G2_SSD1306_128X64_NONAME_1_SW_I2C DisplayHandler;
+typedef U8G2_SSD1306_128X64_NONAME_1_HW_I2C U8G2_SSD1306;
 
 #define DEBUG_BUTTONS ON
 
@@ -77,7 +77,7 @@ BatteryIndication battery(BATTERY_INDICATION_PIN, R1, R2, BATTERY_9V);
 // Remote Transmitter_Remote;
 RFPayload payload;
 RF24 Radio;
-DisplayHandler display = DisplayHandler(U8G2_R0, DISPLAY_SCL, DISPLAY_SDA, U8X8_PIN_NONE);  
+U8G2_SSD1306 display = U8G2_SSD1306(U8G2_R0, U8X8_PIN_NONE);  
 
 
 
@@ -121,7 +121,7 @@ boolean b_initRadio(RF24* pRadio)
   return b_Success;
 }
 
-void v_initDisplay(DisplayHandler* pDisplay)
+void v_initDisplay(U8G2_SSD1306* pDisplay)
 {
   pDisplay->begin();
   pDisplay->setFont(u8g2_font_Georgia7px_tf);
@@ -248,7 +248,6 @@ void setup() {
 
 
 void loop() {
-  display.firstPage();
 #if OLED_SCREEN == ON
   display.clearDisplay();
 #endif
@@ -256,9 +255,9 @@ void loop() {
   // static uint8_t u8_not_received_counter = 0;
   // bool b_ConnectionLost = false;
   
-  // v_readChannelInputs(RemoteInputs);
+  v_readChannelInputs(RemoteInputs, ResponsiveAnalogs);
   // v_Compute_Button_Voltage_Dividers(InternalRemoteInputs);
-  // v_buildPayload(RemoteInputs, &payload);
+  v_buildPayload(RemoteInputs, &payload);
 
 #if BATTERY_INDICATION == ON
   bool battery_ready = battery.readBatteryVoltage(); // This is working but can't be seen with the arduino connected to pc. Otherwise will read the 5v instead of 9
@@ -320,12 +319,16 @@ void loop() {
     Serial.println(battery.getCurrentVoltage());
 #endif
 
+  uint8_t i;
+  display.firstPage();
   do
   {
-    display.setCursor(0, 20);
-    display.print(F("Free Ram: "));  
-    display.print(freeRam());  
+    for(i = 0; i < N_CHANNELS; i++)
+    {
+      uint8_t y = (i*5) + (i*2) + 15;
+      display.drawFrame(18, y, 108, 6);
+      display.drawBox(18, y, map(RemoteInputs[i].u16_Value, 0, 1023, 18, 108), 6);
+    }
   }while(display.nextPage());
   // u8g2.sendBuffer();
-  delay(20);
 }
