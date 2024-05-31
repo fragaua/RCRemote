@@ -28,7 +28,7 @@
 */
 
 #define BATTERY_INDICATION        OFF
-#define OLED_SCREEN               ON
+#define OLED_SCREEN               OFF
 #define OLED_SCREEN_LOW_MEM_MODE  ON
 #define RESPONSIVE_ANALOG_READ    ON
 

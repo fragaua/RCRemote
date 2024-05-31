@@ -2,6 +2,9 @@
 #include <RF24.h>
 #include <Joystick_if.h>
 
+#include <U8g2lib.h>
+#include <Wire.h>
+
 #if OLED_SCREEN == ON
   #if OLED_SCREEN_LOW_MEM_MODE == ON
     #include "DisplayFunctions.h"
@@ -10,6 +13,7 @@
   #endif
 #endif
 
+U8G2_SSD1306_128X64_NONAME_1_SW_I2C display(U8G2_R0, SCL, SDA, U8X8_PIN_NONE);  
 
 
 #define DEBUG_BUTTONS ON
@@ -125,30 +129,30 @@ void v_Remote_Modules_Init()
 }
 
 
-void v_Compute_Button_Voltage_Dividers(InternalRemoteInputs_t *Buttons)
-{
-  // TODO: Debounce button input
-  int i_Analog_Read = analogRead(BUTTON_ANALOG_PIN);
-  uint8_t i;
-  for(i = 0; i < N_BUTTONS; i++)
-  {
-    Buttons[i] = false; // Reset buttons by default
-  }
+// void v_Compute_Button_Voltage_Dividers(InternalRemoteInputs_t *Buttons)
+// {
+//   // TODO: Debounce button input
+//   int i_Analog_Read = analogRead(BUTTON_ANALOG_PIN);
+//   uint8_t i;
+//   for(i = 0; i < N_BUTTONS; i++)
+//   {
+//     Buttons[i] = false; // Reset buttons by default
+//   }
 
-  if(i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_DOWN)
-  {
-    Buttons[0] = true;
-  }
-  else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_DOWN && i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_UP)
-  {
-    Buttons[1] = true;
-  }
-  else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_UP && i_Analog_Read < 1023)
-  {
-    Buttons[2] = true;
-  }
+//   if(i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_DOWN)
+//   {
+//     Buttons[0] = true;
+//   }
+//   else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_DOWN && i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_UP)
+//   {
+//     Buttons[1] = true;
+//   }
+//   else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_UP && i_Analog_Read < 1023)
+//   {
+//     Buttons[2] = true;
+//   }
 
-}
+// }
 
 
 void v_Read_Inputs(Input_t *const p_RemoteInput)
@@ -228,6 +232,7 @@ void setup() {
   Serial.print(F("Bytes\n"));
 
 
+  display.begin();
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
 #if OLED_SCREEN == ON
   if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) 
@@ -252,21 +257,23 @@ void setup() {
   display.display();
 #endif
 
-  v_Remote_Modules_Init();
+  // v_Remote_Modules_Init();
 }
 
 
 void loop() {
+  display.setFont(u8g2_font_Georgia7px_tf);
+  display.firstPage();
 #if OLED_SCREEN == ON
   display.clearDisplay();
 #endif
-  static int i32_previous_tx_time;
-  static uint8_t u8_not_received_counter = 0;
-  bool b_ConnectionLost = false;
+  // static int i32_previous_tx_time;
+  // static uint8_t u8_not_received_counter = 0;
+  // bool b_ConnectionLost = false;
   
-  v_Read_Inputs(RemoteInputs);
-  v_Compute_Button_Voltage_Dividers(InternalRemoteInputs);
-  v_Build_Payload(RemoteInputs, &payload);
+  // v_Read_Inputs(RemoteInputs);
+  // v_Compute_Button_Voltage_Dividers(InternalRemoteInputs);
+  // v_Build_Payload(RemoteInputs, &payload);
 
 #if BATTERY_INDICATION == ON
   bool battery_ready = battery.readBatteryVoltage(); // This is working but can't be seen with the arduino connected to pc. Otherwise will read the 5v instead of 9
@@ -274,36 +281,37 @@ void loop() {
   // display_wrapper.printBatteryOLED(99.9);
 #endif
 
-  unsigned long start_timer = micros();                
-  bool RF_OK = Radio.write(&payload, sizeof(RFPayload));
-  unsigned long end_timer = micros();
-  int i32_tx_time = end_timer - start_timer;
+  // unsigned long start_timer = micros();                
+  // bool RF_OK = Radio.write(&payload, sizeof(RFPayload));
+  // unsigned long end_timer = micros();
+  // int i32_tx_time = end_timer - start_timer;
   
-  if (RF_OK) 
-  {
-    u8_not_received_counter = 0; // Reset not received counter
-    b_ConnectionLost = false; // TODO: Check if it's enough to just set as true once we send one message
+  // if (RF_OK) 
+  // {
+  //   u8_not_received_counter = 0; // Reset not received counter
+  //   b_ConnectionLost = false; // TODO: Check if it's enough to just set as true once we send one message
 
     
-    if((i32_tx_time - i32_previous_tx_time) > TX_TIME_LONG)
-    {
+  //   if((i32_tx_time - i32_previous_tx_time) > TX_TIME_LONG)
+  //   {
    
  
-    }
+  //   }
  
-  } 
-  else 
-  {
-    if(u8_not_received_counter >= TX_CONNECTION_LOST_COUNTER_THRESHOLD)
-    {
-      b_ConnectionLost = true;
-    }
-    else
-    {
-      u8_not_received_counter++;
-    }
+  // } 
+  // else 
+  // {
+  //   if(u8_not_received_counter >= TX_CONNECTION_LOST_COUNTER_THRESHOLD)
+  //   {
+  //     b_ConnectionLost = true;
+  //   }
+  //   else
+  //   {
+  //     u8_not_received_counter++;
+  //   }
 
-  }
+  // }
+  // i32_previous_tx_time = i32_tx_time;
 
 #if OLED_SCREEN == ON
   #if OLED_SCREEN_LOW_MEM_MODE == ON
@@ -320,7 +328,6 @@ void loop() {
   display.display(); // Only display the buffer at the end of each loop
 #endif
 
-  i32_previous_tx_time = i32_tx_time;
 
 #if DEBUG_BATTERY_INDICATION == ON
     Serial.print(F("Battery %: "));
@@ -328,5 +335,12 @@ void loop() {
     Serial.println(battery.getCurrentVoltage());
 #endif
 
+  do
+  {
+    display.setCursor(0, 20);
+    display.print(F("Free Ram: "));  
+    display.print(freeRam());  
+  }while(display.nextPage());
+  // u8g2.sendBuffer();
   delay(20);
 }
