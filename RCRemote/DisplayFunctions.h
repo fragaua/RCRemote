@@ -38,7 +38,7 @@ typedef uint16_t RemoteInputs_t;
 
 
 void v_updateOptionButtons(const Adafruit_SSD1306* const display, View_t_Buttons* ViewButtons, InternalRemoteInputs_t InternalRemoteInputs[]);
-void v_drawAnalogs(const Adafruit_SSD1306* const display, const Input_t*  eChannels);
+void v_drawAnalogs(const Adafruit_SSD1306* const display, const RemoteChannelInput_t*  eChannels);
 void v_printConnectionStatusOLED(const Adafruit_SSD1306* const display, int tx_time, bool no_connection);
 void v_drawOptionButtons(const Adafruit_SSD1306* const display, View_t_Buttons ViewButtons[]);
 

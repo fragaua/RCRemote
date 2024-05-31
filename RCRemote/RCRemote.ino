@@ -13,8 +13,7 @@
   #endif
 #endif
 
-U8G2_SSD1306_128X64_NONAME_1_SW_I2C display(U8G2_R0, SCL, SDA, U8X8_PIN_NONE);  
-
+typedef U8G2_SSD1306_128X64_NONAME_1_SW_I2C DisplayHandler;
 
 #define DEBUG_BUTTONS ON
 
@@ -50,7 +49,7 @@ typedef struct RFPayload{
 // TODO: Later, the menus and inputs should be used to configure trimming and end-point adjustment on the fly.
 // They shouldn't be configured here like some of the inputs are.
                                    // Pin, Value, Trim, Min, Max, isAnalog, Invert, Channel Name  
-Input_t RemoteInputs[N_CHANNELS] = {{JOYSTICK_LEFT_AXIS_X_PIN,  0u, 0u, 0u,   0u,   false, true, "JLX"}, 
+RemoteChannelInput_t RemoteInputs[N_CHANNELS] = {{JOYSTICK_LEFT_AXIS_X_PIN,  0u, 0u, 0u,   0u,   false, true, "JLX"}, 
                                     {JOYSTICK_LEFT_AXIS_Y_PIN,  0u, 0u, 255u, 255u, false, true, "JLY"}, 
                                     /*{JOYSTICK_LEFT_SWITCH_PIN,  0u, false, "JLB"},*/
                                     {JOYSTICK_RIGHT_AXIS_X_PIN, 0u, 0u, 255u, 255u, true,  true, "JRX"}, 
@@ -77,7 +76,8 @@ BatteryIndication battery(BATTERY_INDICATION_PIN, R1, R2, BATTERY_9V);
 
 // Remote Transmitter_Remote;
 RFPayload payload;
-RF24 Radio;  // using pin 7 for the CE pin, and pin 8 for the CSN pin
+RF24 Radio;
+DisplayHandler display = DisplayHandler(U8G2_R0, DISPLAY_SCL, DISPLAY_SDA, U8X8_PIN_NONE);  
 
 
 
@@ -89,9 +89,11 @@ int freeRam ()
 }
 
 
-void v_Remote_Modules_Init()
+// TODO: make a struct containing the responsive analog reads so that we can easily enable or disable it via if directives
+// TODO: Improve naming to enforce the concept of "remote CHANNEL input" and ordinary "remote input" (such as buttons)
+void v_initRemoteInputs(RemoteChannelInput_t* pRemoteInputs, ResponsiveAnalogRead* pRespAnalogRead)
 {
-  
+  // Remote CHANNEL inputs
   uint8_t i;
   for(i = 0; i < N_CHANNELS; i++)
   {
@@ -100,32 +102,30 @@ void v_Remote_Modules_Init()
     ResponsiveAnalogs[i].begin(RemoteInputs[i].u8_Pin, true);
 #endif
   }
+  // Remote input 
+  pinMode(BUTTON_ANALOG_PIN, INPUT);
+}
 
-  pinMode(POT_LEFT_ACTIVATE_PIN,       OUTPUT);
-  pinMode(POT_RIGHT_ACTIVATE_PIN,      OUTPUT);
-  digitalWrite(POT_RIGHT_ACTIVATE_PIN, HIGH);
-  digitalWrite(POT_LEFT_ACTIVATE_PIN,  LOW);
-  
-  pinMode(BUTTON_ANALOG_PIN,           INPUT);
+boolean b_initRadio(RF24* pRadio)
+{
+  *pRadio = RF24(RF24_CE_PIN, RF24_CSN_PIN);
+  bool b_Success = pRadio->begin();
 
-  // Buttons are read form analog input, with voltage divider
-
-  Radio = RF24(RF24_CE_PIN, RF24_CSN_PIN);
-  bool b_Success = Radio.begin();
-  if(b_Success == true)
+  if(b_Success)
   {
-    Serial.println(F("Initialized radio!"));
-    //Radio.printDetails();
+    Radio.setPALevel(RF24_PA_LOW);
+    Radio.setPayloadSize(sizeof(RFPayload));
+    Radio.openWritingPipe(RF_Address); 
+    Radio.stopListening(); // Turn on TX Mode
   }
-  else
-  {
-    Serial.println(F("Failed radio initialization"));
-  }
+  return b_Success;
+}
 
-  Radio.setPALevel(RF24_PA_LOW);
-  Radio.setPayloadSize(sizeof(RFPayload));
-  Radio.openWritingPipe(RF_Address); 
-  Radio.stopListening(); // Turn on TX Mode
+void v_initDisplay(DisplayHandler* pDisplay)
+{
+  pDisplay->begin();
+  pDisplay->setFont(u8g2_font_Georgia7px_tf);
+
 }
 
 
@@ -155,58 +155,58 @@ void v_Remote_Modules_Init()
 // }
 
 
-void v_Read_Inputs(Input_t *const p_RemoteInput)
+void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, ResponsiveAnalogRead* pRespAnalogRead)
 {
   uint8_t i;
   for(i = 0; i < N_CHANNELS; i++)
   {
-    if(RemoteInputs[i].b_Analog)
+    if(pRemoteChannelInput[i].b_Analog)
     {
-      RemoteInputs[i].u16_Value = (uint16_t)analogRead(RemoteInputs[i].u8_Pin);
-      v_Invert_Input(&RemoteInputs[i]);
-      v_Process_Trimming(&RemoteInputs[i]); // Trimming is processed before adjustment to ensure trim offset doesn't overload the min-max values
-      v_Process_Endpoint_Adjustment(&RemoteInputs[i]);
+      pRemoteChannelInput[i].u16_Value = (uint16_t)analogRead(pRemoteChannelInput[i].u8_Pin);
+      v_invertInput(&pRemoteChannelInput[i]);
+      v_processTrimming(&pRemoteChannelInput[i]); // Trimming is processed before adjustment to ensure trim offset doesn't overload the min-max values
+      v_processEndpointAdjustment(&pRemoteChannelInput[i]);
 #if RESPONSIVE_ANALOG_READ == ON
-      ResponsiveAnalogs[i].update(RemoteInputs[i].u16_Value);
-      RemoteInputs[i].u16_Value = ResponsiveAnalogs[i].getValue();
+      pRespAnalogRead[i].update(pRemoteChannelInput[i].u16_Value);
+      pRemoteChannelInput[i].u16_Value = pRespAnalogRead[i].getValue();
 #endif
-
     }
     else
     {
-      RemoteInputs[i].u16_Value = map((uint16_t)digitalRead(RemoteInputs[i].u8_Pin), 0, 1, 0, 1023);
+      pRemoteChannelInput[i].u16_Value = map((uint16_t)digitalRead(pRemoteChannelInput[i].u8_Pin), LOW, HIGH, ANALOG_MIN_VALUE, ANALOG_MAX_VALUE);
     }
   }
 }
 
 /* Processes endpoint adjustment and overrides provided value if value is outside current configured endpoints */
-void v_Process_Endpoint_Adjustment(Input_t* p_input)
+void v_processEndpointAdjustment(RemoteChannelInput_t* pInput)
 {
-  uint16_t u16_MaxValue = (ANALOG_MAX_VALUE - p_input->u8_MaxValueOffset);
-  uint16_t u16_MinValue = (ANALOG_MIN_VALUE + p_input->u8_MinValueOffset);
-  p_input->u16_Value = (p_input->u16_Value > u16_MaxValue) ? u16_MaxValue : p_input->u16_Value; 
-  p_input->u16_Value = (p_input->u16_Value < u16_MinValue) ? u16_MinValue : p_input->u16_Value; 
-}
-/* Process trimming and add the current trim offset to the actual value.*/
-void v_Process_Trimming(Input_t* p_input)
-{
-  p_input->u16_Value += p_input->u8_Trim;
+  uint16_t u16_MaxValue = (ANALOG_MAX_VALUE - pInput->u8_MaxValueOffset);
+  uint16_t u16_MinValue = (ANALOG_MIN_VALUE + pInput->u8_MinValueOffset);
+  pInput->u16_Value = (pInput->u16_Value > u16_MaxValue) ? u16_MaxValue : pInput->u16_Value; 
+  pInput->u16_Value = (pInput->u16_Value < u16_MinValue) ? u16_MinValue : pInput->u16_Value; 
 }
 
-void v_Invert_Input(Input_t* p_input)
+/* Process trimming and add the current trim offset to the actual value.*/
+void v_processTrimming(RemoteChannelInput_t* pInput)
 {
-  if(p_input->b_InvertInput)
+  pInput->u16_Value += pInput->u8_Trim;
+}
+
+void v_invertInput(RemoteChannelInput_t* pInput)
+{
+  if(pInput->b_InvertInput)
   {
-    p_input->u16_Value = map(p_input->u16_Value, ANALOG_MIN_VALUE, ANALOG_MAX_VALUE, ANALOG_MAX_VALUE, ANALOG_MIN_VALUE);
+    pInput->u16_Value = map(pInput->u16_Value, ANALOG_MIN_VALUE, ANALOG_MAX_VALUE, ANALOG_MAX_VALUE, ANALOG_MIN_VALUE);
   }
 }
 
-void v_Build_Payload(const Input_t * p_RemoteInput, RFPayload *p_payload)
+void v_buildPayload(const RemoteChannelInput_t* pRemoteChannelInput, RFPayload* pPayload)
 {
   uint8_t i;
   for(i = 0; i < N_CHANNELS; i++)
   {
-    p_payload->u16_Channels[i] = p_RemoteInput[i].u16_Value;
+    pPayload->u16_Channels[i] = pRemoteChannelInput[i].u16_Value;
   }
 
 }
@@ -216,32 +216,20 @@ void v_Build_Payload(const Input_t * p_RemoteInput, RFPayload *p_payload)
 #if OLED_SCREEN == ON
   View_t_Buttons              ViewButtons[N_VIEW_BUTTONS] = {{true, false, "Mon"}, {false, false, "Trm"}, {false, false, "Chn"}};
   InternalRemoteInputs_t      InternalRemoteInputs[N_BUTTONS];
-  #if OLED_SCREEN_LOW_MEM_MODE == ON
-   Adafruit_SSD1306  display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET); 
-  #else
-    View v;
-    AnalogMonitor analog_monitors[N_CHANNELS];
-  #endif
+  // old high mem mode
+  View v;
+  AnalogMonitor analog_monitors[N_CHANNELS];
 #endif
 
 void setup() {
   Serial.begin(115200);
-  // printf_begin();
 
-  Serial.println(freeRam()); // TODO: Give visual feedback if ram isn't enough
-  Serial.print(F("Bytes\n"));
+  v_initDisplay(&display);
+  v_initRemoteInputs(RemoteInputs, ResponsiveAnalogs);
+  boolean b_initRadioSuccess = b_initRadio(&Radio);
+  // TODO: Display a msg on screen if radio wasn't properly initialized
 
-
-  display.begin();
-  // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-#if OLED_SCREEN == ON
-  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) 
-  {
-    Serial.println(F("SSD1306 allocation failed"));
-    for(;;); // Don't proceed, loop forever // TODO: Give visual feedback (internal LED for example)
-  }
-#endif
-
+// TODO: See if we can use class based displays with new low mem page buffer
 #if OLED_SCREEN == ON
   #if OLED_SCREEN_LOW_MEM_MODE == OFF
     v = View();
@@ -253,16 +241,13 @@ void setup() {
       v.addComponent(&(analog_monitors[i]));
     }
   #endif
-  
-  display.display();
 #endif
-
-  // v_Remote_Modules_Init();
+  Serial.println(freeRam()); // TODO: Halt program, use u8x8 instead and display a msg on the screen
+  Serial.print(F("Bytes\n"));
 }
 
 
 void loop() {
-  display.setFont(u8g2_font_Georgia7px_tf);
   display.firstPage();
 #if OLED_SCREEN == ON
   display.clearDisplay();
@@ -271,9 +256,9 @@ void loop() {
   // static uint8_t u8_not_received_counter = 0;
   // bool b_ConnectionLost = false;
   
-  // v_Read_Inputs(RemoteInputs);
+  // v_readChannelInputs(RemoteInputs);
   // v_Compute_Button_Voltage_Dividers(InternalRemoteInputs);
-  // v_Build_Payload(RemoteInputs, &payload);
+  // v_buildPayload(RemoteInputs, &payload);
 
 #if BATTERY_INDICATION == ON
   bool battery_ready = battery.readBatteryVoltage(); // This is working but can't be seen with the arduino connected to pc. Otherwise will read the 5v instead of 9

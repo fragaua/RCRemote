@@ -62,7 +62,7 @@
 
 
 #define DISPLAY_SCL               A5
-#define DISPLAY_SCA               A4
+#define DISPLAY_SDA               A4
 
 #define RF24_CSN_PIN              8  // When CSN is low, module listens on SPI port
 #define RF24_CE_PIN               9  // CE Selects whether transmit or receive
@@ -92,7 +92,7 @@
 #define TX_CONNECTION_LOST_COUNTER_THRESHOLD 10 // After this ammount of successive failed sends, declare connection lost
 
 
-typedef struct Input_t{
+typedef struct RemoteChannelInput_t{
   uint8_t  u8_Pin;          // Current configured pin on the board.
   uint16_t u16_Value;       // Current, actual converted value.
   uint8_t  u8_Trim;         // Middle point adjustment. 
@@ -101,6 +101,6 @@ typedef struct Input_t{
   bool     b_InvertInput;
   bool     b_Analog;        // Analog input or not
   char     c_Name[MAX_NAME_CHAR+1]; // Channel name
-}Input_t;
+}RemoteChannelInput_t;
 
 #endif

@@ -21,7 +21,7 @@ void v_updateOptionButtons(const Adafruit_SSD1306* const display, View_t_Buttons
   // TODO: Fix button VDivs.
 }
 
-void v_drawAnalogs(const Adafruit_SSD1306* const display, const Input_t*  eChannels)
+void v_drawAnalogs(const Adafruit_SSD1306* const display, const RemoteChannelInput_t*  eChannels)
 {
   display->setTextSize(1);             // Normal 1:1 pixel scale
   display->setTextColor(WHITE); 
