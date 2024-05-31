@@ -87,9 +87,7 @@
 
 
 /* Radio configuration */ // TODO: Add here other configurations like PA level and data rate
-#define TX_TIME_LONG    1000 // in us. Time to trigger LED bklinking if tx was too long
-#define TX_BLINK_TIME   2000000 // in usecs.  LED blink time
-#define TX_CONNECTION_LOST_COUNTER_THRESHOLD 10 // After this ammount of successive failed sends, declare connection lost
+#define TX_TIMEOUT    300 // in milliseconds. Time to trigger "No communication" on screen
 
 
 typedef struct RemoteChannelInput_t{

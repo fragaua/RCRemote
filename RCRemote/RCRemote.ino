@@ -113,6 +113,7 @@ boolean b_initRadio(RF24* pRadio)
 
   if(b_Success)
   {
+    Radio.setAutoAck(false); // Making sure auto ack isn't ON to ensure we can properly calcualte timeouts
     Radio.setPALevel(RF24_PA_LOW);
     Radio.setPayloadSize(sizeof(RFPayload));
     Radio.openWritingPipe(RF_Address); 
@@ -124,7 +125,7 @@ boolean b_initRadio(RF24* pRadio)
 void v_initDisplay(U8G2_SSD1306* pDisplay)
 {
   pDisplay->begin();
-  pDisplay->setFont(u8g2_font_Georgia7px_tf);
+  pDisplay->setFont(u8g2_font_smolfont_tf);
 
 }
 
@@ -212,6 +213,37 @@ void v_buildPayload(const RemoteChannelInput_t* pRemoteChannelInput, RFPayload* 
 }
 
 
+boolean b_sendPayload(RF24* pRadio, RFPayload* pPayload, unsigned long* lTransmissionTime)
+{
+  // Time measure
+  unsigned long lStartTimer = micros(); 
+  boolean bPackageAcknowledged = pRadio->write(&pPayload, sizeof(RFPayload));             
+  unsigned long lEndTimer = micros();
+
+  *lTransmissionTime = (lEndTimer - lStartTimer); // Total time to tx or timeout(configured internaly in rf24 as 60-70ms) if never acknowledged 
+  return  bPackageAcknowledged; 
+}
+
+boolean b_transmissionTimeout(boolean bPackageAcknowledged)
+{
+  static unsigned long lPreviousSuccessfulTxTimestamp;
+  bool bConnectionLost = false;
+
+
+  if(bPackageAcknowledged)
+  {
+    lPreviousSuccessfulTxTimestamp = millis();
+  }
+  else
+  {
+    if(lPreviousSuccessfulTxTimestamp > TX_TIMEOUT)
+    {
+      bConnectionLost = true;
+    }
+  }
+  return bConnectionLost;
+}
+
 // /* Display functions */
 #if OLED_SCREEN == ON
   View_t_Buttons              ViewButtons[N_VIEW_BUTTONS] = {{true, false, "Mon"}, {false, false, "Trm"}, {false, false, "Chn"}};
@@ -251,13 +283,13 @@ void loop() {
 #if OLED_SCREEN == ON
   display.clearDisplay();
 #endif
-  // static int i32_previous_tx_time;
-  // static uint8_t u8_not_received_counter = 0;
-  // bool b_ConnectionLost = false;
-  
+  unsigned long lTxTime;
   v_readChannelInputs(RemoteInputs, ResponsiveAnalogs);
   // v_Compute_Button_Voltage_Dividers(InternalRemoteInputs);
   v_buildPayload(RemoteInputs, &payload);
+
+  boolean bSendSuccess = b_sendPayload(&Radio, &payload, &lTxTime);
+  boolean bTimeout = b_transmissionTimeout(bSendSuccess);
 
 #if BATTERY_INDICATION == ON
   bool battery_ready = battery.readBatteryVoltage(); // This is working but can't be seen with the arduino connected to pc. Otherwise will read the 5v instead of 9
@@ -265,64 +297,35 @@ void loop() {
   // display_wrapper.printBatteryOLED(99.9);
 #endif
 
-  // unsigned long start_timer = micros();                
-  // bool RF_OK = Radio.write(&payload, sizeof(RFPayload));
-  // unsigned long end_timer = micros();
-  // int i32_tx_time = end_timer - start_timer;
   
-  // if (RF_OK) 
-  // {
-  //   u8_not_received_counter = 0; // Reset not received counter
-  //   b_ConnectionLost = false; // TODO: Check if it's enough to just set as true once we send one message
-
-    
-  //   if((i32_tx_time - i32_previous_tx_time) > TX_TIME_LONG)
-  //   {
-   
- 
-  //   }
- 
-  // } 
-  // else 
-  // {
-  //   if(u8_not_received_counter >= TX_CONNECTION_LOST_COUNTER_THRESHOLD)
-  //   {
-  //     b_ConnectionLost = true;
-  //   }
-  //   else
-  //   {
-  //     u8_not_received_counter++;
-  //   }
-
-  // }
-  // i32_previous_tx_time = i32_tx_time;
 
 #if OLED_SCREEN == ON
   #if OLED_SCREEN_LOW_MEM_MODE == ON
     v_updateOptionButtons(&display, ViewButtons, InternalRemoteInputs);
     v_drawOptionButtons(&display, ViewButtons);
     v_drawAnalogs(&display, RemoteInputs);
-    v_printConnectionStatusOLED(&display, i32_tx_time, b_ConnectionLost);
+    v_printConnectionStatusOLED(&display, i32TxTime, b_ConnectionLost);
   #else
     View_t_Input inputs = {InternalRemoteInputs[0], InternalRemoteInputs[1], InternalRemoteInputs[2]};
     v.update(inputs);
     v.draw();
   #endif
- 
-  display.display(); // Only display the buffer at the end of each loop
-#endif
-
-
-#if DEBUG_BATTERY_INDICATION == ON
-    Serial.print(F("Battery %: "));
-    Serial.println(battery.getBatteryPercentage());
-    Serial.println(battery.getCurrentVoltage());
-#endif
+ #endif
 
   uint8_t i;
   display.firstPage();
   do
   {
+    display.setCursor(20,10);
+    if(bTimeout)
+    {
+      display.print(lTxTime);
+    }
+    else
+    {
+      display.print(F("No comunication"));
+    }
+
     for(i = 0; i < N_CHANNELS; i++)
     {
       uint8_t y = (i*5) + (i*2) + 15;
@@ -330,5 +333,4 @@ void loop() {
       display.drawBox(18, y, map(RemoteInputs[i].u16_Value, 0, 1023, 18, 108), 6);
     }
   }while(display.nextPage());
-  // u8g2.sendBuffer();
 }
