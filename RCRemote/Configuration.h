@@ -37,6 +37,23 @@
  *  PIN Definitions  
  */
 
+
+#define ANALOG_BUTTON_VDIV_THRESHOLD_DOWN 505u
+#define ANALOG_BUTTON_VDIV_THRESHOLD_UP   650u
+
+#define JOYSTICK_LEFT_AXIS_X_CHANNEL_IDX  0u
+#define JOYSTICK_LEFT_AXIS_Y_CHANNEL_IDX  1u
+// #define JOYSTICK_LEFT_SWITCH_CHANNEL_IDX  2u
+#define JOYSTICK_RIGHT_AXIS_X_CHANNEL_IDX 2u
+#define JOYSTICK_RIGHT_AXIS_Y_CHANNEL_IDX 3u
+// #define JOYSTICK_RIGHT_SWITCH_CHANNEL_IDX 5u
+#define POT_RIGHT_CHANNEL_IDX             4u
+#define SWITCH_SP_RIGHT_CHANNEL_IDX       5u
+#define SWITCH_SP_LEFT_CHANNEL_IDX        6u
+
+
+
+
 #define JOYSTICK_RIGHT_AXIS_X_PIN A1
 #define JOYSTICK_RIGHT_AXIS_Y_PIN A0
 #define JOYSTICK_RIGHT_SWITCH_PIN 7
@@ -88,6 +105,12 @@
 
 /* Radio configuration */ // TODO: Add here other configurations like PA level and data rate
 #define TX_TIMEOUT    300 // in milliseconds. Time to trigger "No communication" on screen
+
+/*
+* NRF24L01 RFCom related
+*/
+#define RF_ADDRESS_SIZE 6
+const byte RF_Address[RF_ADDRESS_SIZE] = "1Node";
 
 
 typedef struct RemoteChannelInput_t{

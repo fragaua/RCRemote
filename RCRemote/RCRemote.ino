@@ -2,42 +2,9 @@
 #include <RF24.h>
 #include <Joystick_if.h>
 
-#include <U8g2lib.h>
-#include <Wire.h>
+#include "UiCoreFramework.h"
 
-#if OLED_SCREEN == ON
-  #if OLED_SCREEN_LOW_MEM_MODE == ON
-    #include "DisplayFunctions.h"
-  #else
-    #include "RemoteDisplay.h"
-  #endif
-#endif
-
-typedef U8G2_SSD1306_128X64_NONAME_1_HW_I2C U8G2_SSD1306;
-
-#define DEBUG_BUTTONS ON
-
-
-/*
-* NRF24L01 RFCom related
-*/
-#define RF_ADDRESS_SIZE 6
-const byte RF_Address[RF_ADDRESS_SIZE] = "1Node";
-
-
-#define ANALOG_BUTTON_VDIV_THRESHOLD_DOWN 505u
-#define ANALOG_BUTTON_VDIV_THRESHOLD_UP   650u
-
-#define JOYSTICK_LEFT_AXIS_X_CHANNEL_IDX  0u
-#define JOYSTICK_LEFT_AXIS_Y_CHANNEL_IDX  1u
-// #define JOYSTICK_LEFT_SWITCH_CHANNEL_IDX  2u
-#define JOYSTICK_RIGHT_AXIS_X_CHANNEL_IDX 2u
-#define JOYSTICK_RIGHT_AXIS_Y_CHANNEL_IDX 3u
-// #define JOYSTICK_RIGHT_SWITCH_CHANNEL_IDX 5u
-#define POT_RIGHT_CHANNEL_IDX             4u
-#define SWITCH_SP_RIGHT_CHANNEL_IDX       5u
-#define SWITCH_SP_LEFT_CHANNEL_IDX        6u
-
+// typedef U8G2_SSD1306_128X64_NONAME_1_HW_I2C U8G2_SSD1306;
 
 
 typedef struct RFPayload{
@@ -77,9 +44,6 @@ BatteryIndication battery(BATTERY_INDICATION_PIN, R1, R2, BATTERY_9V);
 // Remote Transmitter_Remote;
 RFPayload payload;
 RF24 Radio;
-U8G2_SSD1306 display = U8G2_SSD1306(U8G2_R0, U8X8_PIN_NONE);  
-
-
 
 int freeRam () 
 {
@@ -122,12 +86,7 @@ boolean b_initRadio(RF24* pRadio)
   return b_Success;
 }
 
-void v_initDisplay(U8G2_SSD1306* pDisplay)
-{
-  pDisplay->begin();
-  pDisplay->setFont(u8g2_font_smolfont_tf);
 
-}
 
 
 // void v_Compute_Button_Voltage_Dividers(InternalRemoteInputs_t *Buttons)
@@ -244,45 +203,33 @@ boolean b_transmissionTimeout(boolean bPackageAcknowledged)
   return bConnectionLost;
 }
 
-// /* Display functions */
-#if OLED_SCREEN == ON
-  View_t_Buttons              ViewButtons[N_VIEW_BUTTONS] = {{true, false, "Mon"}, {false, false, "Trm"}, {false, false, "Chn"}};
-  InternalRemoteInputs_t      InternalRemoteInputs[N_BUTTONS];
-  // old high mem mode
-  View v;
-  AnalogMonitor analog_monitors[N_CHANNELS];
-#endif
 
 void setup() {
   Serial.begin(115200);
-
-  v_initDisplay(&display);
+  Serial.println(freeRam()); // TODO: Halt program, use u8x8 instead and display a msg on the screen
+  Serial.print(F("Bytes\n"));
+  // v_initDisplay(&display);
   v_initRemoteInputs(RemoteInputs, ResponsiveAnalogs);
   boolean b_initRadioSuccess = b_initRadio(&Radio);
   // TODO: Display a msg on screen if radio wasn't properly initialized
 
-// TODO: See if we can use class based displays with new low mem page buffer
-#if OLED_SCREEN == ON
-  #if OLED_SCREEN_LOW_MEM_MODE == OFF
-    v = View();
-    uint8_t i;
-    for(i = 0; i < N_CHANNELS; i++)
-    {
-      analog_monitors[i] = AnalogMonitor(&display);
-      analog_monitors[i].setPosition(18, (i*5) + (i*2) + 15);
-      v.addComponent(&(analog_monitors[i]));
-    }
-  #endif
-#endif
-  Serial.println(freeRam()); // TODO: Halt program, use u8x8 instead and display a msg on the screen
-  Serial.print(F("Bytes\n"));
+  uint8_t i;
+  v_UiM_init();
+
+  for(i = 0; i < N_CHANNELS; i++)
+  {
+    uint8_t y = (i*5) + (i*2) + 15;
+    v_UiM_newComponent(0, ANALOGMONITOR, {18, y});
+  }
+  
+  
+
+
 }
 
 
 void loop() {
-#if OLED_SCREEN == ON
-  display.clearDisplay();
-#endif
+
   unsigned long lTxTime;
   v_readChannelInputs(RemoteInputs, ResponsiveAnalogs);
   // v_Compute_Button_Voltage_Dividers(InternalRemoteInputs);
@@ -297,40 +244,18 @@ void loop() {
   // display_wrapper.printBatteryOLED(99.9);
 #endif
 
-  
-
-#if OLED_SCREEN == ON
-  #if OLED_SCREEN_LOW_MEM_MODE == ON
-    v_updateOptionButtons(&display, ViewButtons, InternalRemoteInputs);
-    v_drawOptionButtons(&display, ViewButtons);
-    v_drawAnalogs(&display, RemoteInputs);
-    v_printConnectionStatusOLED(&display, i32TxTime, b_ConnectionLost);
-  #else
-    View_t_Input inputs = {InternalRemoteInputs[0], InternalRemoteInputs[1], InternalRemoteInputs[2]};
-    v.update(inputs);
-    v.draw();
-  #endif
- #endif
-
   uint8_t i;
-  display.firstPage();
-  do
+  for(i = 0; i < N_CHANNELS; i++)
   {
-    display.setCursor(20,10);
-    if(bTimeout)
-    {
-      display.print(lTxTime);
-    }
-    else
-    {
-      display.print(F("No comunication"));
-    }
+    // uint8_t y = (i*5) + (i*2) + 15;
+    v_UiM_updateComponent(0, i, RemoteInputs[i].u16_Value);
+  }
+  v_UiM_draw();
+  // Serial.println("hdsadsasi");
 
-    for(i = 0; i < N_CHANNELS; i++)
-    {
-      uint8_t y = (i*5) + (i*2) + 15;
-      display.drawFrame(18, y, 108, 6);
-      display.drawBox(18, y, map(RemoteInputs[i].u16_Value, 0, 1023, 18, 108), 6);
-    }
-  }while(display.nextPage());
+    // v_updateOptionButtons(&display, ViewButtons, InternalRemoteInputs);
+    // v_drawOptionButtons(&display, ViewButtons);
+    // v_drawAnalogs(&display, RemoteInputs);
+    // v_printConnectionStatusOLED(&display, i32TxTime, b_ConnectionLost);
+
 }
