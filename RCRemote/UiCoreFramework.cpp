@@ -12,15 +12,8 @@
 
 #include "UiCoreFramework.h"
 
-static void drawAnalogMonitorComponent(uint8_t x, uint8_t y, int value);
+static void drawAnalogMonitorComponent(Component_t_ProgressBar* pAnalogMonitor);
 
-
-static void (*componentDrawFunctionLUT[N_COMPONENT_TYPES])(uint8_t x, uint8_t y, int value) = 
-{
-  drawAnalogMonitorComponent,
-  drawAnalogMonitorComponent,
-  drawAnalogMonitorComponent
-}; 
 
 
 static U8G2_SSD1306 DisplayHandle = U8G2_SSD1306(U8G2_R0, U8X8_PIN_NONE);
@@ -43,31 +36,51 @@ void v_UiM_draw()
   do
   {
     uint8_t i;
-    Component_t currentComponent;
-    for(i = 0; i < uiCoreContext.pageList[uiCoreContext.currentPage].nComponents; i++)
+    Component_t* currentComponent;
+    for(i = 0; i < uiCoreContext.pageList[uiCoreContext.currentPage]->nComponents; i++)
     {
-      currentComponent = uiCoreContext.pageList[uiCoreContext.currentPage].componentList[i];
-      currentComponent.draw(currentComponent.pos.x, currentComponent.pos.y, currentComponent.value);
+      currentComponent = uiCoreContext.pageList[uiCoreContext.currentPage]->componentList[i];
+      currentComponent->draw(currentComponent);
     }
 
   }while(DisplayHandle.nextPage());
 
 }
 
-void v_UiM_newComponent(uint8_t pageIdx, ComponentType t, ComponentPosition_t pos)
+// void v_UiM_newComponent(uint8_t pageIdx, ComponentType t, ComponentPosition_t pos)
+// {
+//   Serial.println("Creating Component");
+//   uint8_t componentIndex = uiCoreContext.pageList[pageIdx].nComponents;
+//   uiCoreContext.pageList[pageIdx].componentList[componentIndex].draw = componentDrawFunctionLUT[t];
+//   uiCoreContext.pageList[pageIdx].componentList[componentIndex].pos = pos;
+//   uiCoreContext.pageList[pageIdx].componentList[componentIndex].value = 230; // debug
+//   uiCoreContext.pageList[pageIdx].nComponents++;
+//   Serial.println("Created Component");
+// }
+
+void v_UiM_newProgressBar(Component_t_ProgressBar* pProgressBar, uint8_t pageIdx, uint8_t x, uint8_t y, int value)
 {
-  Serial.println("Creating Component");
-  uint8_t componentIndex = uiCoreContext.pageList[pageIdx].nComponents;
-  uiCoreContext.pageList[pageIdx].componentList[componentIndex].draw = componentDrawFunctionLUT[t];
-  uiCoreContext.pageList[pageIdx].componentList[componentIndex].pos = pos;
-  uiCoreContext.pageList[pageIdx].componentList[componentIndex].value = 230; // debug
-  uiCoreContext.pageList[pageIdx].nComponents++;
-  Serial.println("Created Component");
+  uint8_t componentIndex = uiCoreContext.pageList[pageIdx]->nComponents;
+  
+  // Initialize component
+  // Assign function and cast child component to parent Component_t
+  pProgressBar->base.draw = (void(*)(Component_t*))drawAnalogMonitorComponent; 
+  pProgressBar->base.pos.x = x;
+  pProgressBar->base.pos.y = y;
+
+  // Update the initial progress bar value
+  pProgressBar->value = value;
+
+  // Add the component to the page
+  uiCoreContext.pageList[pageIdx]->componentList[componentIndex] = (Component_t*)pProgressBar;
+  uiCoreContext.pageList[pageIdx]->nComponents++;
 }
-void v_UiM_updateComponent(uint8_t pageIdx, uint8_t componentIdx, int value)
-{
-  uiCoreContext.pageList[pageIdx].componentList[componentIdx].value = value;
-}
+
+
+// void v_UiM_updateComponent(uint8_t pageIdx, uint8_t componentIdx, int value)
+// {
+//   uiCoreContext.pageList[pageIdx]->componentList[componentIdx].value = value;
+// }
 
 void v_UiM_newPage()
 {
@@ -76,10 +89,10 @@ void v_UiM_newPage()
 
 
 
-static void drawAnalogMonitorComponent(uint8_t x, uint8_t y, int value)
+static void drawAnalogMonitorComponent(Component_t_ProgressBar* pAnalogMonitor)
 {
-  DisplayHandle.drawFrame(x, y, 108, 6);
-  DisplayHandle.drawBox(x, y, map(value, 0, 1023, 18, 108), 6);
+  DisplayHandle.drawFrame(pAnalogMonitor->base.pos.x, pAnalogMonitor->base.pos.y, 108, 6);
+  DisplayHandle.drawBox(pAnalogMonitor->base.pos.x, pAnalogMonitor->base.pos.y, map(pAnalogMonitor->value, 0, 1023, 18, 108), 6);
 }
 
 

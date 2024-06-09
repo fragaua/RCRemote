@@ -38,16 +38,31 @@ typedef struct ComponentPosition_t
 }ComponentPosition_t;
 
 // Component base. Every component child has a reference to this parent structure.
-// The idea is to have some sort of inheritance
+// The idea is to have some sort of class and inheritance in C
 typedef struct Component_t
 {
     ComponentPosition_t pos;
-    void (*draw)(uint8_t x, uint8_t y, int value);
+    void (*draw)(Component_t* s);
 }Component_t;
+
+typedef struct Component_t_Text
+{
+
+
+}Component_t_Text;
+
+typedef struct Component_t_ProgressBar
+{
+    Component_t base;
+    int value;
+}Component_t_ProgressBar;
+
 
 typedef struct Page_t
 { 
-    Component_t componentList[MAX_COMPONENTS_PER_VIEW];
+    // This must be a pointer array since the elements we are adding are of different, 
+    // bigger sizes than Component_t.
+    Component_t* componentList[MAX_COMPONENTS_PER_VIEW]; 
     uint8_t nComponents;
 }Page_t;
 
@@ -58,7 +73,7 @@ typedef struct Page_t_Inputs
 
 typedef struct UiCore_t
 {
-    Page_t pageList[MAX_NUMBER_PAGES];
+    Page_t* pageList[MAX_NUMBER_PAGES];
     uint8_t currentPage;
     uint8_t nPages;
 
@@ -68,7 +83,9 @@ typedef struct UiCore_t
 
 void v_UiM_draw();
 void v_UiM_init();
-void v_UiM_newComponent(uint8_t pageIdx, ComponentType t, ComponentPosition_t pos);
+// void v_UiM_newComponent(uint8_t pageIdx, ComponentType t, ComponentPosition_t pos);
+void v_UiM_newText(Component_t_Text* pText, uint8_t pageIdx, uint8_t x, uint8_t y, const char* pContent);
+void v_UiM_newProgressBar(Component_t_ProgressBar* pProgressBar, uint8_t pageIdx, uint8_t x, uint8_t y, int value);
 void v_UiM_updateComponent(uint8_t pageIdx, uint8_t componentIdx, int value);
 void v_UiM_newPage();
 
