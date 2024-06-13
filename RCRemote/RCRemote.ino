@@ -203,8 +203,12 @@ boolean b_transmissionTimeout(boolean bPackageAcknowledged)
   return bConnectionLost;
 }
 
+Component_t_ProgressBar progressBars[N_CHANNELS];
+Page_t mainPage;
+UiC_ErrorType error;
 
-void setup() {
+void setup() 
+{
   Serial.begin(115200);
   Serial.println(freeRam()); // TODO: Halt program, use u8x8 instead and display a msg on the screen
   Serial.print(F("Bytes\n"));
@@ -214,21 +218,20 @@ void setup() {
   // TODO: Display a msg on screen if radio wasn't properly initialized
 
   uint8_t i;
-  v_UiM_init();
+  v_UiC_init();
 
+  e_UiC_newPage(&mainPage);
   for(i = 0; i < N_CHANNELS; i++)
   {
     uint8_t y = (i*5) + (i*2) + 15;
-    v_UiM_newComponent(0, ANALOGMONITOR, {18, y});
+    e_UiC_newProgressBar(&(progressBars[i]), &mainPage, 18, y);
   }
   
-  
-
-
 }
 
 
-void loop() {
+void loop() 
+{
 
   unsigned long lTxTime;
   v_readChannelInputs(RemoteInputs, ResponsiveAnalogs);
@@ -247,15 +250,12 @@ void loop() {
   uint8_t i;
   for(i = 0; i < N_CHANNELS; i++)
   {
-    // uint8_t y = (i*5) + (i*2) + 15;
-    v_UiM_updateComponent(0, i, RemoteInputs[i].u16_Value);
+    v_UiC_updateComponent((Component_t*) &(progressBars[i]), &(RemoteInputs[i].u16_Value));
   }
-  v_UiM_draw();
-  // Serial.println("hdsadsasi");
+  v_UiC_draw();
 
-    // v_updateOptionButtons(&display, ViewButtons, InternalRemoteInputs);
-    // v_drawOptionButtons(&display, ViewButtons);
-    // v_drawAnalogs(&display, RemoteInputs);
-    // v_printConnectionStatusOLED(&display, i32TxTime, b_ConnectionLost);
-
+  // v_updateOptionButtons(&display, ViewButtons, InternalRemoteInputs);
+  // v_drawOptionButtons(&display, ViewButtons);
+  // v_drawAnalogs(&display, RemoteInputs);
+  // v_printConnectionStatusOLED(&display, i32TxTime, b_ConnectionLost);
 }

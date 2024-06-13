@@ -23,13 +23,21 @@ typedef U8G2_SSD1306_128X64_NONAME_1_HW_I2C U8G2_SSD1306;
 #define MAX_NUMBER_PAGES        4u
 #define MAX_NR_CHARS            5u
 
+
+enum UiC_ErrorType
+{
+    UiC_OK,
+    UiC_ERROR
+};
+
+
 enum ComponentType
 {
+    PROGRESSBAR,
     TEXT,
-    IMAGE,
-    ANALOGMONITOR,
-    N_COMPONENT_TYPES // Last enum element is equal to the total nr of types
+    N_COMPONENTS // Last enum is essentially the total number of component types.
 };
+
 
 typedef struct ComponentPosition_t
 {
@@ -41,20 +49,23 @@ typedef struct ComponentPosition_t
 // The idea is to have some sort of class and inheritance in C
 typedef struct Component_t
 {
+    ComponentType       type;
     ComponentPosition_t pos;
-    void (*draw)(Component_t* s);
+    void (*draw)  (Component_t* s);
+    void (*update)(Component_t* s, void* v);
 }Component_t;
 
 typedef struct Component_t_Text
 {
-
+    Component_t base;
+    char        value[MAX_NR_CHARS];  // TODO: Make sure we can pass strings from 
 
 }Component_t_Text;
 
 typedef struct Component_t_ProgressBar
 {
     Component_t base;
-    int value;
+    uint16_t    value;
 }Component_t_ProgressBar;
 
 
@@ -81,13 +92,12 @@ typedef struct UiCore_t
 }UiCore_t;
 
 
-void v_UiM_draw();
-void v_UiM_init();
-// void v_UiM_newComponent(uint8_t pageIdx, ComponentType t, ComponentPosition_t pos);
-void v_UiM_newText(Component_t_Text* pText, uint8_t pageIdx, uint8_t x, uint8_t y, const char* pContent);
-void v_UiM_newProgressBar(Component_t_ProgressBar* pProgressBar, uint8_t pageIdx, uint8_t x, uint8_t y, int value);
-void v_UiM_updateComponent(uint8_t pageIdx, uint8_t componentIdx, int value);
-void v_UiM_newPage();
+void v_UiC_draw();
+void v_UiC_init();
+void v_UiC_newText(Component_t_Text* pText, uint8_t pageIdx, uint8_t x, uint8_t y, const char* pContent);
+UiC_ErrorType e_UiC_newProgressBar(Component_t_ProgressBar* pProgressBar, Page_t* pPage, uint8_t x, uint8_t y);
+void v_UiC_updateComponent(Component_t* pComponent, void* pValue);
+UiC_ErrorType e_UiC_newPage(Page_t* pPage);
 
 
 #endif;
