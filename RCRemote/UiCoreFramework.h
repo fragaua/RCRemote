@@ -58,8 +58,7 @@ typedef struct Component_t
 typedef struct Component_t_Text
 {
     Component_t base;
-    char        value[MAX_NR_CHARS];  // TODO: Make sure we can pass strings from 
-
+    char        value[MAX_NR_CHARS];
 }Component_t_Text;
 
 typedef struct Component_t_ProgressBar
@@ -94,10 +93,10 @@ typedef struct UiCore_t
 
 void v_UiC_draw();
 void v_UiC_init();
-void v_UiC_newText(Component_t_Text* pText, uint8_t pageIdx, uint8_t x, uint8_t y, const char* pContent);
-UiC_ErrorType e_UiC_newProgressBar(Component_t_ProgressBar* pProgressBar, Page_t* pPage, uint8_t x, uint8_t y);
 void v_UiC_updateComponent(Component_t* pComponent, void* pValue);
 UiC_ErrorType e_UiC_newPage(Page_t* pPage);
+UiC_ErrorType e_UiC_newText(Component_t_Text* pText, Page_t* pPage, uint8_t x, uint8_t y);
+UiC_ErrorType e_UiC_newProgressBar(Component_t_ProgressBar* pProgressBar, Page_t* pPage, uint8_t x, uint8_t y);
 
 
 #endif;

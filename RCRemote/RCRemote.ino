@@ -204,9 +204,9 @@ boolean b_transmissionTimeout(boolean bPackageAcknowledged)
 }
 
 Component_t_ProgressBar progressBars[N_CHANNELS];
+Component_t_Text text_test;
 Page_t mainPage;
 UiC_ErrorType error;
-
 void setup() 
 {
   Serial.begin(115200);
@@ -226,6 +226,9 @@ void setup()
     uint8_t y = (i*5) + (i*2) + 15;
     e_UiC_newProgressBar(&(progressBars[i]), &mainPage, 18, y);
   }
+
+  e_UiC_newText(&text_test, &mainPage, 5, 5);
+  v_UiC_updateComponent((Component_t*) &text_test, "Text");
   
 }
 

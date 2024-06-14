@@ -12,8 +12,11 @@
 
 #include "UiCoreFramework.h"
 
-static void drawAnalogMonitorComponent(Component_t_ProgressBar* pAnalogMonitor);
-static void updateAnalogMonitorComponent(Component_t_ProgressBar* pAnalogMonitor, uint16_t* value);
+static void drawProgressBarComponent(Component_t_ProgressBar* pProgressBar);
+static void updateProgressBarComponent(Component_t_ProgressBar* pProgressBar, uint16_t* value);
+
+static void drawTextComponent(Component_t_Text* pText);
+static void updateTextComponent(Component_t_Text* pText, char* value);
 
 
 
@@ -69,6 +72,22 @@ UiC_ErrorType e_UiC_newProgressBar(Component_t_ProgressBar* pProgressBar, Page_t
 // Position values could easily be generic since every component already has it anyway
 
 
+UiC_ErrorType e_UiC_newText(Component_t_Text* pText, Page_t* pPage, uint8_t x, uint8_t y)
+{
+  // Initialize component
+  // Assign function and cast child component to parent Component_t
+  pText->base.draw   = (void(*)(Component_t*))drawTextComponent; 
+  pText->base.update = (void(*)(Component_t*, void*))updateTextComponent; 
+  pText->base.type   = TEXT;
+  pText->base.pos.x  = x;
+  pText->base.pos.y  = y;
+  
+  // Add the component to the page
+  pPage->componentList[pPage->nComponents] = (Component_t*)pText;
+  pPage->nComponents++; 
+
+}
+
 
 
 void v_UiC_updateComponent(Component_t* pComponent, void* pValue)
@@ -91,18 +110,32 @@ UiC_ErrorType e_UiC_newPage(Page_t* pPage)
 
 
 // TODO: Implement the various component draw functions. At some point, these can be easily inserted into a "Module Specific" file.
-static void drawAnalogMonitorComponent(Component_t_ProgressBar* pAnalogMonitor)
+static void drawProgressBarComponent(Component_t_ProgressBar* pProgressBar)
 {
 
-  DisplayHandle.drawFrame(pAnalogMonitor->base.pos.x, pAnalogMonitor->base.pos.y, 108, 6);
-  DisplayHandle.drawBox(pAnalogMonitor->base.pos.x, pAnalogMonitor->base.pos.y, map(pAnalogMonitor->value, 0, 1023, 108, 0), 6);
+  DisplayHandle.drawFrame(pProgressBar->base.pos.x, pProgressBar->base.pos.y, 108, 6);
+  DisplayHandle.drawBox(pProgressBar->base.pos.x, pProgressBar->base.pos.y, map(pProgressBar->value, 0, 1023, 108, 0), 6);
 }
 
-static void updateAnalogMonitorComponent(Component_t_ProgressBar* pAnalogMonitor, uint16_t* value)
+static void updateProgressBarComponent(Component_t_ProgressBar* pProgressBar, uint16_t* value)
 {
-
-  pAnalogMonitor->value = *value;
+  pProgressBar->value = *value;
 }
+
+static void drawTextComponent(Component_t_Text* pText)
+{
+  Serial.print("Value: ");
+  Serial.println(pText->value);
+  DisplayHandle.drawStr(pText->base.pos.x, pText->base.pos.y, pText->value);
+}
+// TODO: Consider changing char* to const __FlashStringHelper in order to allow for less RAM usage
+static void updateTextComponent(Component_t_Text* pText, char* value) 
+{
+  Serial.print("InUpdate: ");
+  Serial.println(value);
+  strncpy(pText->value, value, sizeof(pText->value));
+}
+
 
 
 
