@@ -33,8 +33,9 @@ enum UiC_ErrorType
 
 enum ComponentType
 {
-    PROGRESSBAR,
-    TEXT,
+    UIC_COMPONENT_TEXT,
+    UIC_COMPONENT_PROGRESSBAR,
+    UIC_COMPONENT_MENU_BUTTON,
     N_COMPONENTS // Last enum is essentially the total number of component types.
 };
 
@@ -66,6 +67,14 @@ typedef struct Component_t_ProgressBar
     Component_t base;
     uint16_t    value;
 }Component_t_ProgressBar;
+
+typedef struct Component_t_MenuButton
+{
+    Component_t base;
+    char        buttonText;
+    bool        isSelected;
+    bool        isClicked;
+}Component_t_MenuButton;
 
 
 typedef struct Page_t

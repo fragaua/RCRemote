@@ -25,13 +25,15 @@ static UiCore_t  uiCoreContext;
 
 void v_UiC_init()
 {
+
+  uiCoreContext.nPages = 0;
+  uiCoreContext.currentPage = 0;
   
+  // Initialize U8G2 Display Handle
   DisplayHandle.begin();
   DisplayHandle.clearDisplay();
   DisplayHandle.setFont(u8g2_font_smolfont_tf);
-  uiCoreContext.nPages = 0;
-  uiCoreContext.currentPage = 0;
-  Serial.println("UiC Initialized");
+  
 
 }
 
@@ -57,9 +59,9 @@ UiC_ErrorType e_UiC_newProgressBar(Component_t_ProgressBar* pProgressBar, Page_t
 {  
   // Initialize component
   // Assign function and cast child component to parent Component_t
-  pProgressBar->base.draw   = (void(*)(Component_t*))drawAnalogMonitorComponent; 
-  pProgressBar->base.update = (void(*)(Component_t*, void*))updateAnalogMonitorComponent; 
-  pProgressBar->base.type   = PROGRESSBAR;
+  pProgressBar->base.draw   = (void(*)(Component_t*))drawProgressBarComponent; 
+  pProgressBar->base.update = (void(*)(Component_t*, void*))updateProgressBarComponent; 
+  pProgressBar->base.type   = UIC_COMPONENT_PROGRESSBAR;
   pProgressBar->base.pos.x  = x;
   pProgressBar->base.pos.y  = y;
   
@@ -78,7 +80,7 @@ UiC_ErrorType e_UiC_newText(Component_t_Text* pText, Page_t* pPage, uint8_t x, u
   // Assign function and cast child component to parent Component_t
   pText->base.draw   = (void(*)(Component_t*))drawTextComponent; 
   pText->base.update = (void(*)(Component_t*, void*))updateTextComponent; 
-  pText->base.type   = TEXT;
+  pText->base.type   = UIC_COMPONENT_TEXT;
   pText->base.pos.x  = x;
   pText->base.pos.y  = y;
   
@@ -124,15 +126,11 @@ static void updateProgressBarComponent(Component_t_ProgressBar* pProgressBar, ui
 
 static void drawTextComponent(Component_t_Text* pText)
 {
-  Serial.print("Value: ");
-  Serial.println(pText->value);
   DisplayHandle.drawStr(pText->base.pos.x, pText->base.pos.y, pText->value);
 }
 // TODO: Consider changing char* to const __FlashStringHelper in order to allow for less RAM usage
 static void updateTextComponent(Component_t_Text* pText, char* value) 
 {
-  Serial.print("InUpdate: ");
-  Serial.println(value);
   strncpy(pText->value, value, sizeof(pText->value));
 }
 
