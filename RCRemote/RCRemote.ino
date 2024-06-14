@@ -2,9 +2,7 @@
 #include <RF24.h>
 #include <Joystick_if.h>
 
-#include "UiCoreFramework.h"
-
-// typedef U8G2_SSD1306_128X64_NONAME_1_HW_I2C U8G2_SSD1306;
+#include "UiManagement.h"
 
 
 typedef struct RFPayload{
@@ -26,6 +24,9 @@ RemoteChannelInput_t RemoteInputs[N_CHANNELS] = {{JOYSTICK_LEFT_AXIS_X_PIN,  0u,
                                     {SWITCH_SP_LEFT_PIN,        0u, 0u, 0u,   0u,   false, false, "SWL"}, 
                                     {SWITCH_SP_RIGHT_PIN,       0u, 0u, 0u,   0u,   false, false, "SWR"}};
 
+
+
+UiM_t_Inputs  uiInputs;
 
 
 
@@ -141,6 +142,8 @@ void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, Respon
 /* Processes endpoint adjustment and overrides provided value if value is outside current configured endpoints */
 void v_processEndpointAdjustment(RemoteChannelInput_t* pInput)
 {
+  // TODO: Scratch the concept of "offset" now that we have more memory to spare, otherwise endpoint setting is limited
+  // to a max of 255.
   uint16_t u16_MaxValue = (ANALOG_MAX_VALUE - pInput->u8_MaxValueOffset);
   uint16_t u16_MinValue = (ANALOG_MIN_VALUE + pInput->u8_MinValueOffset);
   pInput->u16_Value = (pInput->u16_Value > u16_MaxValue) ? u16_MaxValue : pInput->u16_Value; 
@@ -203,33 +206,18 @@ boolean b_transmissionTimeout(boolean bPackageAcknowledged)
   return bConnectionLost;
 }
 
-Component_t_ProgressBar progressBars[N_CHANNELS];
-Component_t_Text text_test;
-Page_t mainPage;
-UiC_ErrorType error;
 void setup() 
 {
   Serial.begin(115200);
   Serial.println(freeRam()); // TODO: Halt program, use u8x8 instead and display a msg on the screen
   Serial.print(F("Bytes\n"));
-  // v_initDisplay(&display);
+  
   v_initRemoteInputs(RemoteInputs, ResponsiveAnalogs);
   boolean b_initRadioSuccess = b_initRadio(&Radio);
   // TODO: Display a msg on screen if radio wasn't properly initialized
-
-  uint8_t i;
-  v_UiC_init();
-
-  e_UiC_newPage(&mainPage);
-  for(i = 0; i < N_CHANNELS; i++)
-  {
-    uint8_t y = (i*5) + (i*2) + 15;
-    e_UiC_newProgressBar(&(progressBars[i]), &mainPage, 18, y);
-  }
-
-  e_UiC_newText(&text_test, &mainPage, 5, 5);
-  v_UiC_updateComponent((Component_t*) &text_test, "Text");
   
+  v_UiM_init(RemoteInputs, &uiInputs);
+
 }
 
 
@@ -250,12 +238,8 @@ void loop()
   // display_wrapper.printBatteryOLED(99.9);
 #endif
 
-  uint8_t i;
-  for(i = 0; i < N_CHANNELS; i++)
-  {
-    v_UiC_updateComponent((Component_t*) &(progressBars[i]), &(RemoteInputs[i].u16_Value));
-  }
-  v_UiC_draw();
+
+  v_UiM_update();
 
   // v_updateOptionButtons(&display, ViewButtons, InternalRemoteInputs);
   // v_drawOptionButtons(&display, ViewButtons);
