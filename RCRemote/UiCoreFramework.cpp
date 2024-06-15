@@ -115,6 +115,22 @@ UiC_ErrorType e_UiC_newPage(Page_t* pPage)
   return UiC_OK;
 }
 
+// TODO: Provide the ability to change to the next page on the list 
+void v_UiC_changePage(Page_t* nextPage)
+{
+  uint8_t i; 
+  for(i = 0; i < MAX_NUMBER_PAGES; i++) // For now, let's iterate the pages to fetch the index of "nextPage". TODO: Improve this
+  {
+    if(nextPage == uiCoreContext.pageList[i])
+    {
+      break;
+    }
+  }
+  // Update the current page to the index of "nextPage"
+  uiCoreContext.currentPage = i;
+
+}
+
 
 
 // TODO: Implement the various component draw functions. At some point, these can be easily inserted into a "Module Specific" file.

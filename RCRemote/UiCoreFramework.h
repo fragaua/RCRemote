@@ -101,12 +101,18 @@ typedef struct UiCore_t
 }UiCore_t;
 
 
-void v_UiC_draw();
+/**  Core functionality **/
 void v_UiC_init();
-void v_UiC_updateComponent(Component_t* pComponent, void* pValue);
+void v_UiC_draw();
+
+/** Page Handling  **/
 UiC_ErrorType e_UiC_newPage(Page_t* pPage);
+void v_UiC_changePage(Page_t* nextPage); 
+
+/** Component handling **/
 UiC_ErrorType e_UiC_newText(Component_t_Text* pText, Page_t* pPage, uint8_t x, uint8_t y);
 UiC_ErrorType e_UiC_newProgressBar(Component_t_ProgressBar* pProgressBar, Page_t* pPage, uint8_t x, uint8_t y);
+void v_UiC_updateComponent(Component_t* pComponent, void* pValue);
 
 
 #endif;

@@ -26,8 +26,6 @@ RemoteCommunicationState_t RemoteCommunicationState = {false, 0l};
 UiM_t_Inputs  uiInputs;
 UiM_t_rPorts  uiInputData = {&uiInputs, RemoteInputs, &RemoteCommunicationState};
 
-uint8_t InternalRemoteInputs[3]; // temporary
-
 #if RESPONSIVE_ANALOG_READ == ON
 #include <ResponsiveAnalogRead.h>
 ResponsiveAnalogRead ResponsiveAnalogs[N_ANALOG_CHANNELS];
@@ -95,30 +93,30 @@ boolean b_initRadio(RF24* pRadio)
 
 
 
-void v_computeButtonVoltageDividers(uint8_t *Buttons)
+void v_computeButtonVoltageDividers(UiM_t_Inputs* pButtons)
 {
   // TODO: Debounce button input
   int i_Analog_Read = analogRead(BUTTON_ANALOG_PIN);
-  uint8_t i;
-  for(i = 0; i < N_BUTTONS; i++)
-  {
-    Buttons[i] = 0; // Reset buttons by default
-  }
+  // Reset buttons by default
+  pButtons->inputButtonLeft = 0; 
+  pButtons->inputButtonRight = 0; 
+  pButtons->inputButtonSelect = 0; 
+
 
   if(i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_DOWN)
   {
-    Buttons[0] = 1;
+    pButtons->inputButtonRight = 1;
   }
   else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_DOWN && i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_UP)
   {
-    Buttons[1] = 1;
+    pButtons->inputButtonLeft = 1;
   }
-  else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_UP && i_Analog_Read < 1023)
+  else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_UP && i_Analog_Read < 1000)
   {
-    Buttons[2] = 1;
+    pButtons->inputButtonSelect = 1;
   }
-
 }
+
 
 
 void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, ResponsiveAnalogRead* pRespAnalogRead)
@@ -129,7 +127,6 @@ void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, Respon
     if(pRemoteChannelInput[i].b_Analog)
     {
       pRemoteChannelInput[i].u16_Value = (uint16_t)analogRead(pRemoteChannelInput[i].u8_Pin);
-      v_invertInput(&pRemoteChannelInput[i]);
       v_processTrimming(&pRemoteChannelInput[i]); // Trimming is processed before adjustment to ensure trim offset doesn't overload the min-max values
       v_processEndpointAdjustment(&pRemoteChannelInput[i]);
 #if RESPONSIVE_ANALOG_READ == ON
@@ -141,6 +138,8 @@ void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, Respon
     {
       pRemoteChannelInput[i].u16_Value = map((uint16_t)digitalRead(pRemoteChannelInput[i].u8_Pin), LOW, HIGH, ANALOG_MIN_VALUE, ANALOG_MAX_VALUE);
     }
+    
+    v_invertInput(&pRemoteChannelInput[i]); // All channels, regardless of being analog or not, can be inverted
   }
 }
 
@@ -231,7 +230,6 @@ void loop()
 
   unsigned long lTxTime;
   v_readChannelInputs(RemoteInputs, ResponsiveAnalogs);
-  v_computeButtonVoltageDividers(InternalRemoteInputs);
   v_buildPayload(RemoteInputs, &payload);
 
   boolean bSendSuccess = b_sendPayload(&Radio, &payload, &(RemoteCommunicationState.l_TransmissionTime));
@@ -243,7 +241,9 @@ void loop()
   // display_wrapper.printBatteryOLED(99.9);
 #endif
 
-
+  // Process UI inputs
+  v_computeButtonVoltageDividers(&uiInputs);
+  uiInputs.scrollWheel = RemoteInputs[POT_RIGHT_CHANNEL_IDX].u16_Value; // Aditionally, let's map the scroll wheel here, for now
   v_UiM_update();
 
   // v_updateOptionButtons(&display, ViewButtons, InternalRemoteInputs);
