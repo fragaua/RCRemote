@@ -192,12 +192,9 @@ boolean b_transmissionTimeout(boolean bPackageAcknowledged)
   if(bPackageAcknowledged)
   {
     lPreviousSuccessfulTxTimestamp = millis();
-    Serial.println("Taken");
   }
   else
   {
-    Serial.print("Time diff: ");
-    Serial.println(millis() - lPreviousSuccessfulTxTimestamp);
     if(millis() - lPreviousSuccessfulTxTimestamp > TX_TIMEOUT)
     {
       bConnectionLost = true;

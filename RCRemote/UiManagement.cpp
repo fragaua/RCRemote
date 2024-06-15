@@ -69,7 +69,6 @@ void v_UiM_update()
     
     // TODO: Put into function
     char commStateStr[MAX_NR_CHARS] = "NoComm";
-    Serial.println(UiContextManager.rPorts->remoteCommState->b_ConnectionLost);
     if(!UiContextManager.rPorts->remoteCommState->b_ConnectionLost)
     {
         snprintf(commStateStr, MAX_NR_CHARS, "%d US", UiContextManager.rPorts->remoteCommState->l_TransmissionTime);
