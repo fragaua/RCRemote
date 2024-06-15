@@ -15,18 +15,20 @@
 #include "UiManagement.h"
 
 /* Page/View declaration */
-Page_t mainPage;
+Page_t monitoringPage;  // Default page where we can see the the analog monitors etc.
+Page_t optionsMenu;     // Options menu. Contains a group of options and allows us to navigate to other pages such as configuration
+Page_t configurationPage; // Where we would configure trimming, channel inversion or endpoint adjustment.
 
 
 /* Component Declaration */
 Component_t_ProgressBar progressBars[N_CHANNELS];
-Component_t_Text text_test;
+Component_t_Text        analogId[N_CHANNELS];
+
 
 UiC_ErrorType error;
 
 
-UiM_t_contextManager UiContextManager;
-UiM_t_Inputs         UiInputs;
+static UiM_t_contextManager UiContextManager;
 
 void v_UiM_init(RemoteChannelInput_t* pRemoteInputs, UiM_t_Inputs* pInputs)
 {
@@ -39,18 +41,18 @@ void v_UiM_init(RemoteChannelInput_t* pRemoteInputs, UiM_t_Inputs* pInputs)
     v_UiC_init();
     
     // Initialize all pages
-    e_UiC_newPage(&mainPage);
+    e_UiC_newPage(&monitoringPage);
 
     // Initialize all components
     uint8_t i;
     for(i = 0; i < N_CHANNELS; i++)
     {
         uint8_t y = (i*5) + (i*2) + 15;
-        e_UiC_newProgressBar(&(progressBars[i]), &mainPage, 18, y);
-    }
+        e_UiC_newText(&(analogId[i]), &monitoringPage, 1, y+5);
+        v_UiC_updateComponent((Component_t*) &(analogId[i]), (void*) pRemoteInputs[i].c_Name);
+        e_UiC_newProgressBar(&(progressBars[i]), &monitoringPage, 18, y);
 
-    e_UiC_newText(&text_test, &mainPage, 5, 5);
-    v_UiC_updateComponent((Component_t*) &text_test, "Text");
+    }
   
 }
 
@@ -58,8 +60,7 @@ void v_UiM_init(RemoteChannelInput_t* pRemoteInputs, UiM_t_Inputs* pInputs)
 void v_UiM_update()
 {
     // Process input buttons
-
-    // Update all components with received data
+    // Update all components with received data // TODO: Only components in current page should be updated.
     uint8_t i;
     for(i = 0; i < N_CHANNELS; i++)
     {

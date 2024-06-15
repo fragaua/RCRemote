@@ -19,9 +19,10 @@
 typedef U8G2_SSD1306_128X64_NONAME_1_HW_I2C U8G2_SSD1306;
 
 
-#define MAX_COMPONENTS_PER_VIEW 10u
-#define MAX_NUMBER_PAGES        4u
-#define MAX_NR_CHARS            5u
+// Tweaking these values will allow for more or less memory usage by the overall Ui Core and Management systems
+#define MAX_COMPONENTS_PER_VIEW 18u
+#define MAX_NUMBER_PAGES        6u
+#define MAX_NR_CHARS            10u
 
 
 enum UiC_ErrorType
@@ -82,7 +83,7 @@ typedef struct Page_t
     // This must be a pointer array since the elements we are adding are of different, 
     // bigger sizes than Component_t.
     Component_t* componentList[MAX_COMPONENTS_PER_VIEW]; 
-    uint8_t nComponents;
+    uint8_t      nComponents;
 }Page_t;
 
 typedef struct Page_t_Inputs

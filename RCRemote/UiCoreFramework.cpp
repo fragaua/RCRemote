@@ -12,6 +12,8 @@
 
 #include "UiCoreFramework.h"
 
+
+/** Component specific draw and update functions **/
 static void drawProgressBarComponent(Component_t_ProgressBar* pProgressBar);
 static void updateProgressBarComponent(Component_t_ProgressBar* pProgressBar, uint16_t* value);
 
@@ -19,9 +21,12 @@ static void drawTextComponent(Component_t_Text* pText);
 static void updateTextComponent(Component_t_Text* pText, char* value);
 
 
+/** Internal UiC functions **/
+static UiC_ErrorType e_UiC_addComponentToPage(Component_t* pComponent, Page_t* pPage);
+
 
 static U8G2_SSD1306 DisplayHandle = U8G2_SSD1306(U8G2_R0, U8X8_PIN_NONE);
-static UiCore_t  uiCoreContext;
+static UiCore_t     uiCoreContext;
 
 void v_UiC_init()
 {
@@ -66,8 +71,8 @@ UiC_ErrorType e_UiC_newProgressBar(Component_t_ProgressBar* pProgressBar, Page_t
   pProgressBar->base.pos.y  = y;
   
   // Add the component to the page
-  pPage->componentList[pPage->nComponents] = (Component_t*)pProgressBar;
-  pPage->nComponents++; 
+  return e_UiC_addComponentToPage((Component_t*) pProgressBar, pPage);
+
 }
 // TODO: Can we make a generic component add function? Draw and update functions could be fetched via
 // LUT (like it was at a certain point) and the value could be responsability of the updateCOmponent function.
@@ -84,9 +89,10 @@ UiC_ErrorType e_UiC_newText(Component_t_Text* pText, Page_t* pPage, uint8_t x, u
   pText->base.pos.x  = x;
   pText->base.pos.y  = y;
   
-  // Add the component to the page
-  pPage->componentList[pPage->nComponents] = (Component_t*)pText;
-  pPage->nComponents++; 
+  // // Add the component to the page
+  // pPage->componentList[pPage->nComponents] = (Component_t*)pText;
+  // pPage->nComponents++; 
+  return e_UiC_addComponentToPage((Component_t*) pText, pPage);
 
 }
 
@@ -99,7 +105,7 @@ void v_UiC_updateComponent(Component_t* pComponent, void* pValue)
 
 UiC_ErrorType e_UiC_newPage(Page_t* pPage)
 {
-  if(uiCoreContext.nPages > MAX_NUMBER_PAGES-1)
+  if(uiCoreContext.nPages >= MAX_NUMBER_PAGES-1)
   {
     return UiC_ERROR;
   }
@@ -135,6 +141,20 @@ static void updateTextComponent(Component_t_Text* pText, char* value)
 }
 
 
+
+static UiC_ErrorType e_UiC_addComponentToPage(Component_t* pComponent, Page_t* pPage)
+{
+  if(pPage->nComponents >= MAX_COMPONENTS_PER_VIEW-1)
+  {
+    return UiC_ERROR;
+  }
+  
+  // Add the component to the page
+  pPage->componentList[pPage->nComponents] = (Component_t*) pComponent;
+  pPage->nComponents++; 
+  return UiC_OK;
+  
+}
 
 
 
