@@ -19,13 +19,14 @@ RemoteChannelInput_t RemoteInputs[N_CHANNELS] =
                                     {JOYSTICK_RIGHT_AXIS_X_PIN, 0u,   0u,   255u, 255u,    true,     true,    "JRX"}, 
                                     {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u,   0u,   0u,   0u,      false,    true,    "JRY"}, 
                                     {POT_RIGHT_PIN,             0u,   0u,   0u,   0u,      false,    true,    "PR"},  
-                                    {SWITCH_SP_LEFT_PIN,        0u,   0u,   0u,   0u,      false,    false,   "SWL"}, 
-                                    {SWITCH_SP_RIGHT_PIN,       0u,   0u,   0u,   0u,      false,    false,   "SWR"}};
+                                    {SWITCH_SP_LEFT_PIN,        0u,   0u,   0u,   0u,      true,     false,   "SWL"}, 
+                                    {SWITCH_SP_RIGHT_PIN,       0u,   0u,   0u,   0u,      true,     false,   "SWR"}};
+
 RemoteCommunicationState_t RemoteCommunicationState = {false, 0l};
 UiM_t_Inputs  uiInputs;
 UiM_t_rPorts  uiInputData = {&uiInputs, RemoteInputs, &RemoteCommunicationState};
 
-uint8_t InternalRemoteInputs[3];
+uint8_t InternalRemoteInputs[3]; // temporary
 
 #if RESPONSIVE_ANALOG_READ == ON
 #include <ResponsiveAnalogRead.h>
@@ -61,7 +62,10 @@ void v_initRemoteInputs(RemoteChannelInput_t* pRemoteInputs, ResponsiveAnalogRea
   {
     pinMode(RemoteInputs[i].u8_Pin,    RemoteInputs[i].b_Analog ? INPUT : INPUT_PULLUP);
 #if RESPONSIVE_ANALOG_READ == ON
-    ResponsiveAnalogs[i].begin(RemoteInputs[i].u8_Pin, true);
+    if(RemoteInputs[i].b_Analog) // Only start responsive analogs for analog inputs.
+    {
+      ResponsiveAnalogs[i].begin(RemoteInputs[i].u8_Pin, true);
+    }
 #endif
   }
   // Remote input 
@@ -95,8 +99,6 @@ void v_computeButtonVoltageDividers(uint8_t *Buttons)
 {
   // TODO: Debounce button input
   int i_Analog_Read = analogRead(BUTTON_ANALOG_PIN);
-  Serial.print("Analog read buttons: ");
-  Serial.println(i_Analog_Read);
   uint8_t i;
   for(i = 0; i < N_BUTTONS; i++)
   {
@@ -137,8 +139,6 @@ void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, Respon
     }
     else
     {
-      Serial.print("Values on switch: ");
-      Serial.println((uint16_t)digitalRead(pRemoteChannelInput[i].u8_Pin));
       pRemoteChannelInput[i].u16_Value = map((uint16_t)digitalRead(pRemoteChannelInput[i].u8_Pin), LOW, HIGH, ANALOG_MIN_VALUE, ANALOG_MAX_VALUE);
     }
   }
