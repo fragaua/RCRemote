@@ -22,7 +22,7 @@ typedef U8G2_SSD1306_128X64_NONAME_1_HW_I2C U8G2_SSD1306;
 // Tweaking these values will allow for more or less memory usage by the overall Ui Core and Management systems
 #define MAX_COMPONENTS_PER_VIEW 18u
 #define MAX_NUMBER_PAGES        6u
-#define MAX_NR_CHARS            10u
+#define MAX_NR_CHARS            8u
 
 
 enum UiC_ErrorType

@@ -113,7 +113,8 @@
 const byte RF_Address[RF_ADDRESS_SIZE] = "1Node";
 
 
-typedef struct RemoteChannelInput_t{
+typedef struct RemoteChannelInput_t
+{
   uint8_t  u8_Pin;          // Current configured pin on the board.
   uint16_t u16_Value;       // Current, actual converted value.
   uint8_t  u8_Trim;         // Middle point adjustment. 
@@ -123,5 +124,17 @@ typedef struct RemoteChannelInput_t{
   bool     b_Analog;        // Analog input or not
   char     c_Name[MAX_NAME_CHAR+1]; // Channel name
 }RemoteChannelInput_t;
+
+//
+typedef struct RemoteCommunicationState_t
+{
+  bool           b_ConnectionLost;
+  unsigned long  l_TransmissionTime; // In uSeconds
+}RemoteCommunicationState_t;
+
+typedef struct RFPayload
+{
+  uint16_t u16_Channels[N_CHANNELS];
+}RFPayload;
 
 #endif

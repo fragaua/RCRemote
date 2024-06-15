@@ -41,27 +41,34 @@ typedef struct UiM_t_Inputs
 
 }UiM_t_Inputs;
 
+// Contains all necessary data to update and manage the ui - To be updated with project specific information
+typedef struct UiM_t_rPorts
+{
+
+    UiM_t_Inputs* uiManagementInputs;
+    RemoteChannelInput_t* remoteChannelInputs;
+    RemoteCommunicationState_t* remoteCommState;
+
+}UiM_t_rPorts;
+
 
 // Contains all the inputs necessary to update the internal components.
 typedef struct UiM_t_contextManager
 {
     /**** Receiver Ports *****/
-    // Project specific data to display
-    RemoteChannelInput_t* remoteChannelInputs; // TODO: change this to a "rPort" structure to get also comm data...
-    
-    // Project specific Ui management input data to manage
-    UiM_t_Inputs*         uiManagementInputs;
+    // Project specific data to display and inputs to manage ui
+    UiM_t_rPorts* rPorts;
 
 
     /**** Provider Ports *****/
     // Will provide configuration stuff. For this particular scenario, the configuration
-    // is also available throught the RemoteChannelInput_t in the receiver ports.
+    // is also available through the RemoteChannelInput_t in the receiver ports.
 
 }UiM_t_contextManager;
 
 
 
-void v_UiM_init(RemoteChannelInput_t* pRemoteInputs, UiM_t_Inputs* pInputs);
+void v_UiM_init(UiM_t_rPorts* pReceiverPorts);
 void v_UiM_update();
 
 

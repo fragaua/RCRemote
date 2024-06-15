@@ -5,28 +5,25 @@
 #include "UiManagement.h"
 
 
-typedef struct RFPayload{
-  uint16_t u16_Channels[N_CHANNELS];
-}RFPayload;
+
 
 
 // Declare and configure each input on the remote controller.
 // TODO: Later, the menus and inputs should be used to configure trimming and end-point adjustment on the fly.
 // They shouldn't be configured here like some of the inputs are.
-                                   // Pin, Value, Trim, Min, Max, isAnalog, Invert, Channel Name  
-RemoteChannelInput_t RemoteInputs[N_CHANNELS] = {{JOYSTICK_LEFT_AXIS_X_PIN,  0u, 0u, 0u,   0u,   false, true, "JLX"}, 
-                                    {JOYSTICK_LEFT_AXIS_Y_PIN,  0u, 0u, 255u, 255u, false, true, "JLY"}, 
-                                    /*{JOYSTICK_LEFT_SWITCH_PIN,  0u, false, "JLB"},*/
-                                    {JOYSTICK_RIGHT_AXIS_X_PIN, 0u, 0u, 255u, 255u, true,  true, "JRX"}, 
-                                    {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u, 0u, 0u,   0u,   false, true, "JRY"}, 
-                                    /*{JOYSTICK_RIGHT_SWITCH_PIN, 0u, false, "JRB"},*/
-                                    {POT_RIGHT_PIN,             0u, 0u, 0u,   0u,   false, true, "PR"},  
-                                    {SWITCH_SP_LEFT_PIN,        0u, 0u, 0u,   0u,   false, false, "SWL"}, 
-                                    {SWITCH_SP_RIGHT_PIN,       0u, 0u, 0u,   0u,   false, false, "SWR"}};
-
-
-
+                                   
+RemoteChannelInput_t RemoteInputs[N_CHANNELS] = 
+                                    // Pin,                     Val,  Trim, Min,  Max,   isAnalog,  Invert,   Channel Name  
+                                   {{JOYSTICK_LEFT_AXIS_X_PIN,  0u,   0u,   0u,   0u,      false,    true,    "JLX"}, 
+                                    {JOYSTICK_LEFT_AXIS_Y_PIN,  0u,   0u,   255u, 255u,    false,    true,    "JLY"}, 
+                                    {JOYSTICK_RIGHT_AXIS_X_PIN, 0u,   0u,   255u, 255u,    true,     true,    "JRX"}, 
+                                    {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u,   0u,   0u,   0u,      false,    true,    "JRY"}, 
+                                    {POT_RIGHT_PIN,             0u,   0u,   0u,   0u,      false,    true,    "PR"},  
+                                    {SWITCH_SP_LEFT_PIN,        0u,   0u,   0u,   0u,      false,    false,   "SWL"}, 
+                                    {SWITCH_SP_RIGHT_PIN,       0u,   0u,   0u,   0u,      false,    false,   "SWR"}};
+RemoteCommunicationState_t RemoteCommunicationState = {false, 0l};
 UiM_t_Inputs  uiInputs;
+UiM_t_rPorts  uiInputData = {&uiInputs, RemoteInputs, &RemoteCommunicationState};
 
 
 
@@ -78,7 +75,7 @@ boolean b_initRadio(RF24* pRadio)
 
   if(b_Success)
   {
-    Radio.setAutoAck(false); // Making sure auto ack isn't ON to ensure we can properly calcualte timeouts
+    // Radio.setAutoAck(false); // Making sure auto ack isn't ON to ensure we can properly calcualte timeouts
     Radio.setPALevel(RF24_PA_LOW);
     Radio.setPayloadSize(sizeof(RFPayload));
     Radio.openWritingPipe(RF_Address); 
@@ -188,17 +185,20 @@ boolean b_sendPayload(RF24* pRadio, RFPayload* pPayload, unsigned long* lTransmi
 
 boolean b_transmissionTimeout(boolean bPackageAcknowledged)
 {
-  static unsigned long lPreviousSuccessfulTxTimestamp;
+  static unsigned long lPreviousSuccessfulTxTimestamp = 0l;
   bool bConnectionLost = false;
 
 
   if(bPackageAcknowledged)
   {
     lPreviousSuccessfulTxTimestamp = millis();
+    Serial.println("Taken");
   }
   else
   {
-    if(lPreviousSuccessfulTxTimestamp > TX_TIMEOUT)
+    Serial.print("Time diff: ");
+    Serial.println(millis() - lPreviousSuccessfulTxTimestamp);
+    if(millis() - lPreviousSuccessfulTxTimestamp > TX_TIMEOUT)
     {
       bConnectionLost = true;
     }
@@ -216,7 +216,7 @@ void setup()
   boolean b_initRadioSuccess = b_initRadio(&Radio);
   // TODO: Display a msg on screen if radio wasn't properly initialized
   
-  v_UiM_init(RemoteInputs, &uiInputs);
+  v_UiM_init(&uiInputData);
 
 }
 
@@ -229,9 +229,8 @@ void loop()
   // v_Compute_Button_Voltage_Dividers(InternalRemoteInputs);
   v_buildPayload(RemoteInputs, &payload);
 
-  boolean bSendSuccess = b_sendPayload(&Radio, &payload, &lTxTime);
-  boolean bTimeout = b_transmissionTimeout(bSendSuccess);
-
+  boolean bSendSuccess = b_sendPayload(&Radio, &payload, &(RemoteCommunicationState.l_TransmissionTime));
+  RemoteCommunicationState.b_ConnectionLost = b_transmissionTimeout(bSendSuccess);
 #if BATTERY_INDICATION == ON
   bool battery_ready = battery.readBatteryVoltage(); // This is working but can't be seen with the arduino connected to pc. Otherwise will read the 5v instead of 9
   display_wrapper.printBatteryOLED(battery.getBatteryPercentage());
