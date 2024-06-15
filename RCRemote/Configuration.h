@@ -70,7 +70,7 @@
 #define POT_LEFT_PIN              A7 
 #define POT_RIGHT_PIN             A7 
 #define POT_LEFT_ACTIVATE_PIN      5
-#define POT_RIGHT_ACTIVATE_PIN     4
+#define POT_RIGHT_ACTIVATE_PIN     4 // Leftovers of trying to read two analog signals in one single analog input. 
 
 // We can use 1 analog to read both pots.
 

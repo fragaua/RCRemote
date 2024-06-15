@@ -13,7 +13,7 @@
 // They shouldn't be configured here like some of the inputs are.
                                    
 RemoteChannelInput_t RemoteInputs[N_CHANNELS] = 
-                                    // Pin,                     Val,  Trim, Min,  Max,   isAnalog,  Invert,   Channel Name  
+                                    // Pin,                     Val,  Trim, Min,  Max,   Invert,  isAnalog,   Channel Name  
                                    {{JOYSTICK_LEFT_AXIS_X_PIN,  0u,   0u,   0u,   0u,      false,    true,    "JLX"}, 
                                     {JOYSTICK_LEFT_AXIS_Y_PIN,  0u,   0u,   255u, 255u,    false,    true,    "JLY"}, 
                                     {JOYSTICK_RIGHT_AXIS_X_PIN, 0u,   0u,   255u, 255u,    true,     true,    "JRX"}, 
@@ -25,7 +25,7 @@ RemoteCommunicationState_t RemoteCommunicationState = {false, 0l};
 UiM_t_Inputs  uiInputs;
 UiM_t_rPorts  uiInputData = {&uiInputs, RemoteInputs, &RemoteCommunicationState};
 
-
+uint8_t InternalRemoteInputs[3];
 
 #if RESPONSIVE_ANALOG_READ == ON
 #include <ResponsiveAnalogRead.h>
@@ -66,6 +66,10 @@ void v_initRemoteInputs(RemoteChannelInput_t* pRemoteInputs, ResponsiveAnalogRea
   }
   // Remote input 
   pinMode(BUTTON_ANALOG_PIN, INPUT);
+  
+  // On the first version of Remote Controller, necessary for POT RIGHT to work.
+  pinMode(POT_RIGHT_ACTIVATE_PIN, OUTPUT);
+  digitalWrite(POT_RIGHT_ACTIVATE_PIN, HIGH);
 }
 
 boolean b_initRadio(RF24* pRadio)
@@ -87,30 +91,32 @@ boolean b_initRadio(RF24* pRadio)
 
 
 
-// void v_Compute_Button_Voltage_Dividers(InternalRemoteInputs_t *Buttons)
-// {
-//   // TODO: Debounce button input
-//   int i_Analog_Read = analogRead(BUTTON_ANALOG_PIN);
-//   uint8_t i;
-//   for(i = 0; i < N_BUTTONS; i++)
-//   {
-//     Buttons[i] = false; // Reset buttons by default
-//   }
+void v_computeButtonVoltageDividers(uint8_t *Buttons)
+{
+  // TODO: Debounce button input
+  int i_Analog_Read = analogRead(BUTTON_ANALOG_PIN);
+  Serial.print("Analog read buttons: ");
+  Serial.println(i_Analog_Read);
+  uint8_t i;
+  for(i = 0; i < N_BUTTONS; i++)
+  {
+    Buttons[i] = 0; // Reset buttons by default
+  }
 
-//   if(i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_DOWN)
-//   {
-//     Buttons[0] = true;
-//   }
-//   else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_DOWN && i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_UP)
-//   {
-//     Buttons[1] = true;
-//   }
-//   else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_UP && i_Analog_Read < 1023)
-//   {
-//     Buttons[2] = true;
-//   }
+  if(i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_DOWN)
+  {
+    Buttons[0] = 1;
+  }
+  else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_DOWN && i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_UP)
+  {
+    Buttons[1] = 1;
+  }
+  else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_UP && i_Analog_Read < 1023)
+  {
+    Buttons[2] = 1;
+  }
 
-// }
+}
 
 
 void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, ResponsiveAnalogRead* pRespAnalogRead)
@@ -131,6 +137,8 @@ void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, Respon
     }
     else
     {
+      Serial.print("Values on switch: ");
+      Serial.println((uint16_t)digitalRead(pRemoteChannelInput[i].u8_Pin));
       pRemoteChannelInput[i].u16_Value = map((uint16_t)digitalRead(pRemoteChannelInput[i].u8_Pin), LOW, HIGH, ANALOG_MIN_VALUE, ANALOG_MAX_VALUE);
     }
   }
@@ -223,11 +231,12 @@ void loop()
 
   unsigned long lTxTime;
   v_readChannelInputs(RemoteInputs, ResponsiveAnalogs);
-  // v_Compute_Button_Voltage_Dividers(InternalRemoteInputs);
+  v_computeButtonVoltageDividers(InternalRemoteInputs);
   v_buildPayload(RemoteInputs, &payload);
 
   boolean bSendSuccess = b_sendPayload(&Radio, &payload, &(RemoteCommunicationState.l_TransmissionTime));
   RemoteCommunicationState.b_ConnectionLost = b_transmissionTimeout(bSendSuccess);
+
 #if BATTERY_INDICATION == ON
   bool battery_ready = battery.readBatteryVoltage(); // This is working but can't be seen with the arduino connected to pc. Otherwise will read the 5v instead of 9
   display_wrapper.printBatteryOLED(battery.getBatteryPercentage());
