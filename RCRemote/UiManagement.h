@@ -29,13 +29,25 @@
 
 
 
-// Contains all the inputs the application is able to handle for User Interaction
+// Contains all the inputs the application is able to handle for User Interaction as well as processed versions (rising edge, hold..)
 typedef struct UiM_t_Inputs
 {
     // Project specific set of Ui interface
-    bool     inputButtonLeft   : 1;
-    bool     inputButtonRight  : 1;
-    bool     inputButtonSelect : 1;
+    uint16_t     inputButtonLeft       : 1;
+    uint16_t     inputButtonRight      : 1;
+    uint16_t     inputButtonSelect     : 1;
+
+    uint16_t     risingEdgeButtonLeft   : 1;
+    uint16_t     risingEdgeButtonRight  : 1;
+    uint16_t     risingEdgeButtonSelect : 1;
+
+    uint16_t     holdButtonLeft         : 1;
+    uint16_t     holdButtonRight        : 1;
+    uint16_t     holdButtonSelect       : 1;
+
+    uint16_t     prevButtonLeft         : 1;
+    uint16_t     prevButtonRight        : 1;
+    uint16_t     prevButtonSelect       : 1;
 
     uint16_t scrollWheel; 
 
@@ -45,8 +57,8 @@ typedef struct UiM_t_Inputs
 typedef struct UiM_t_rPorts
 {
 
-    UiM_t_Inputs* uiManagementInputs;
-    RemoteChannelInput_t* remoteChannelInputs;
+    UiM_t_Inputs*               uiManagementInputs;
+    RemoteChannelInput_t*       remoteChannelInputs;
     RemoteCommunicationState_t* remoteCommState;
 
 }UiM_t_rPorts;
@@ -65,7 +77,6 @@ typedef struct UiM_t_contextManager
     // is also available through the RemoteChannelInput_t in the receiver ports.
 
 }UiM_t_contextManager;
-
 
 
 void v_UiM_init(UiM_t_rPorts* pReceiverPorts);

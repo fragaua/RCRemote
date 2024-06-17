@@ -136,11 +136,12 @@ void v_UiC_draw();
 
 /** Page Handling  **/
 UiC_ErrorType e_UiC_newPage(Page_t* pPage);
-void v_UiC_changePage(Page_t* nextPage); 
+void          v_UiC_changePage(Page_t* nextPage); 
+Page_t*       UiC_getActivePage();
 
 /** Component handling **/
 UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, ComponentType eComponentType, Component_t_Data baseData);
-void v_UiC_updateComponent(Component_t* pComponent, void* pValue);
+void          v_UiC_updateComponent(Component_t* pComponent, void* pValue);
 
 
 #endif;

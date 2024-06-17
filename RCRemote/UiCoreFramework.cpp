@@ -36,8 +36,8 @@ static UiC_ErrorType e_UiC_addComponentToPage(Component_t* pComponent, Page_t* p
 ///        Moreover, the Page where we are adding the MenuItems needs to be the exact same as where we are adding the MenuList, 
 ///        otherwise and error will be thrown.
 ///        This isn't the clearest approach but it ensures that we can keep having a generic addComponent without having to pass extra parameters
-///       
-static UiC_ErrorType e_UiC_addMenuItemToMenu (Component_t_MenuItem* pItem, Page_t* );
+static UiC_ErrorType e_UiC_addMenuItemToMenu (Component_t_MenuItem* pItem, Page_t* pPage);
+static bool b_UiC_isComponentInPage(Component_t* pComponent, Page_t* pPage);
 
 
 static U8G2_SSD1306 DisplayHandle = U8G2_SSD1306(U8G2_R0, U8X8_PIN_NONE);
@@ -105,6 +105,11 @@ void v_UiC_changePage(Page_t* nextPage)
 
 }
 
+Page_t* UiC_getActivePage()
+{
+  return uiCoreContext.currentPage;
+}
+
 static UiC_ErrorType e_UiC_addComponentToPage(Component_t* pComponent, Page_t* pPage)
 {
   if(pPage->nComponents >= MAX_COMPONENTS_PER_VIEW-1)
@@ -144,8 +149,27 @@ static UiC_ErrorType e_UiC_addMenuItemToMenu(Component_t_MenuItem* pItem, Page_t
   // Add the component to the page
   pMenu->menuItems[pMenu->nItems] = pItem;
   pMenu->nItems++; 
+  
+  
   return UiC_OK;
 }
+
+static bool b_UiC_isComponentInPage(Component_t* pComponent, Page_t* pPage)
+{
+  // This isn't very efficient, however, there aren't many components in each page (max ~20) and this is a quick ptr comparison
+  // which is equal throughout the program runtime and therefore, I trust that branch predictors will do a good job :)
+  uint8_t i;
+  for(i = 0; i < pPage->nComponents; i++)
+  {
+    if(pPage->componentList[i] == pComponent)
+    {
+      return true;
+    }
+  }
+  return false;
+
+}
+
 
 /** Component handling **/
 
@@ -194,7 +218,11 @@ UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, Compone
 
 void v_UiC_updateComponent(Component_t* pComponent, void* pValue)
 {
-  pComponent->update(pComponent, pValue);
+  bool isComponentInPage = b_UiC_isComponentInPage(pComponent, uiCoreContext.currentPage);
+  if(isComponentInPage) // Only update if the component is in the current active page
+  {
+    pComponent->update(pComponent, pValue);
+  }
 }
 
 
@@ -258,10 +286,8 @@ static void drawMenuListComponent(Component_t_MenuList* pMenu)
 static void updateMenuListComponent(Component_t_MenuList* pMenu, bool* nextItem)
 {
   uint8_t i;
-  if(*nextItem) // nextItem is a 'one-cycle' sort of signal meaning it should be active once every time we want to shift to the next menu entry
+  if(nextItem) // nextItem is a 'one-cycle' sort of signal meaning it should be active once every time we want to shift to the next menu entry
   {
-    Serial.println("Next");
-    Serial.println(pMenu->nItems);
     pMenu->currentlySelectedIdx = (pMenu->currentlySelectedIdx + 1) % pMenu->nItems;
   }
 

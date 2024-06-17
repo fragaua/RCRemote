@@ -98,22 +98,22 @@ void v_computeButtonVoltageDividers(UiM_t_Inputs* pButtons)
   // TODO: Debounce button input
   int i_Analog_Read = analogRead(BUTTON_ANALOG_PIN);
   // Reset buttons by default
-  pButtons->inputButtonLeft = 0; 
-  pButtons->inputButtonRight = 0; 
-  pButtons->inputButtonSelect = 0; 
+  pButtons->inputButtonLeft    = LOW; 
+  pButtons->inputButtonRight   = LOW; 
+  pButtons->inputButtonSelect  = LOW; 
 
 
   if(i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_DOWN)
   {
-    pButtons->inputButtonRight = 1;
+    pButtons->inputButtonRight = HIGH;
   }
   else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_DOWN && i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_UP)
   {
-    pButtons->inputButtonLeft = 1;
+    pButtons->inputButtonLeft = HIGH;
   }
   else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_UP && i_Analog_Read < 1000)
   {
-    pButtons->inputButtonSelect = 1;
+    pButtons->inputButtonSelect = HIGH;
   }
 }
 
