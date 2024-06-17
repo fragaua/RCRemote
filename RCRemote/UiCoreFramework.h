@@ -39,22 +39,31 @@ enum ComponentType
     UIC_COMPONENT_PROGRESSBAR,
     UIC_COMPONENT_MENU_ITEM,
     UIC_COMPONENT_MENU_LIST,
-    N_COMPONENTS // Last enum is essentially the total number of component types.
+    N_COMPONENT_TYPES // Last enum is essentially the total number of component types.
 };
 
 
-typedef struct ComponentPosition_t
+typedef struct Component_t_Position
 {
     uint8_t x;
     uint8_t y;
-}ComponentPosition_t;
+}Component_t_Position;
+
+// This structure contains all possible data needed to create, initialize and
+// add a new component to a page.
+typedef struct Component_t_Data
+{
+    uint8_t x;
+    uint8_t y;
+    char*   stringData;
+}Component_t_Data;
 
 // Component base. Every component child has a reference to this parent structure.
 // The idea is to have some sort of class and inheritance in C
 typedef struct Component_t
 {
     ComponentType       type;
-    ComponentPosition_t pos;
+    Component_t_Position pos;
     void (*draw)  (Component_t* s);
     void (*update)(Component_t* s, void* v);
 }Component_t;
@@ -122,10 +131,7 @@ UiC_ErrorType e_UiC_newPage(Page_t* pPage);
 void v_UiC_changePage(Page_t* nextPage); 
 
 /** Component handling **/
-UiC_ErrorType e_UiC_newText(Component_t_Text* pText, Page_t* pPage, uint8_t x, uint8_t y);
-UiC_ErrorType e_UiC_newProgressBar(Component_t_ProgressBar* pProgressBar, Page_t* pPage, uint8_t x, uint8_t y);
-UiC_ErrorType e_UiC_newMenuItem(Component_t_MenuItem* pMenuItem, Component_t_MenuList* pMenu, uint8_t x, uint8_t y, char* value);
-UiC_ErrorType e_UiC_newMenu(Component_t_MenuList* pMenu, Page_t* pPage);
+UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, ComponentType eComponentType, Component_t_Data baseData);
 void v_UiC_updateComponent(Component_t* pComponent, void* pValue);
 
 

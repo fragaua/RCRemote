@@ -29,6 +29,8 @@ Component_t_Text        test;
 Component_t_MenuList    optionsMenu;
 Component_t_MenuItem    options[3];
 
+Component_t_Data componentInputData;
+
 
 UiC_ErrorType error;
 
@@ -52,27 +54,25 @@ void v_UiM_init(UiM_t_rPorts* pReceiverPorts)
     e_UiC_newPage(&monitoringPage);
     e_UiC_newPage(&optionsPage);
 
+    // TODO: Make a table with all these components and initialize them via for loop with respective configuration for each one
     // Initialize all components
-    error = e_UiC_newMenu(&optionsMenu, &optionsPage);
+    e_UiC_addComponent((Component_t*)&optionsMenu, &optionsPage, UIC_COMPONENT_MENU_LIST, {0});
+
     uint8_t i;
     for(i = 0; i < 3; i++)
     {
         uint8_t y = (i*5) + (i*2) + 15;
-        error = e_UiC_newMenuItem(&(options[i]), &optionsMenu, 3, y, "Item");
+        e_UiC_addComponent((Component_t*)&(options[i]), &optionsPage, UIC_COMPONENT_MENU_ITEM, {3, y, "Item"});
     }
     
     for(i = 0; i < N_CHANNELS; i++)
     {
         uint8_t y = (i*5) + (i*2) + 15;
-        e_UiC_newText(&(analogId[i]), &monitoringPage, 1, y+5);
-        v_UiC_updateComponent((Component_t*) &(analogId[i]), (void*) pReceiverPorts->remoteChannelInputs[i].c_Name);
-        e_UiC_newProgressBar(&(progressBars[i]), &monitoringPage, 18, y);
+        e_UiC_addComponent((Component_t*)&(analogId[i]), &monitoringPage, UIC_COMPONENT_TEXT, {1, (uint8_t)(y+5), pReceiverPorts->remoteChannelInputs[i].c_Name});
+        e_UiC_addComponent((Component_t*)&(progressBars[i]), &monitoringPage, UIC_COMPONENT_PROGRESSBAR, {18, y, NULL});
     }
-    e_UiC_newText(&(communicationState), &monitoringPage, 1, 5);  
-    
-    e_UiC_newText(&(test), &optionsPage, 1, 5);  
-    v_UiC_updateComponent((Component_t*) &(test), (void*) "Options Menu");
-
+    e_UiC_addComponent((Component_t*)&(communicationState), &monitoringPage, UIC_COMPONENT_TEXT, {1, 5, "NoComm"});
+    e_UiC_addComponent((Component_t*)&(test), &optionsPage, UIC_COMPONENT_TEXT, {1, 5, "Options"});
 }
 
 

@@ -130,57 +130,42 @@ static UiC_ErrorType e_UiC_addMenuItemToMenu(Component_t_MenuItem* pItem, Compon
 
 /** Component handling **/
 
-// TODO: Can we make a generic component add function? Draw and update functions could be fetched via
-// LUT (like it was at a certain point) and the value could be responsability of the updateCOmponent function.
-// Position values could easily be generic since every component already has it anyway
-UiC_ErrorType e_UiC_newText(Component_t_Text* pText, Page_t* pPage, uint8_t x, uint8_t y)
+
+UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, ComponentType eComponentType, Component_t_Data baseData)
 {
-  // Initialize component
-  // Assign function and cast child component to parent Component_t
-  pText->base.draw   = (void(*)(Component_t*))drawTextComponent; 
-  pText->base.update = (void(*)(Component_t*, void*))updateTextComponent; 
-  pText->base.type   = UIC_COMPONENT_TEXT;
-  pText->base.pos.x  = x;
-  pText->base.pos.y  = y;
-  
-  return e_UiC_addComponentToPage((Component_t*) pText, pPage);
+  // Accessing pos and type directly is safe? Normally, in terms of memory, the "base" from the more complex type we receive here
+  // would be in the same place as pos and type from a generic component.
+  pComponent->pos.x = baseData.x;
+  pComponent->pos.y = baseData.y;
+  pComponent->type = eComponentType; 
+  switch(eComponentType) // TODO: I wanted a LUT for the draw and update functions. I would have to change the types to void*, however this function would be considerably smaller
+  {
+    case UIC_COMPONENT_TEXT:
+      ((Component_t_Text*)pComponent)->base.draw = (void(*) (Component_t*))drawTextComponent;
+      ((Component_t_Text*)pComponent)->base.update = (void(*)(Component_t*, void*))updateTextComponent;
+      // strncpy <n> parameter takes the size of the <destination>, as per documentation, if <source> is larger, the remainder of the bytes are 0-padded
+      // No issues shall arise if we pass in too big of a string.
+      strncpy(((Component_t_Text*)pComponent)->value, baseData.stringData, sizeof((Component_t_Text*)pComponent)->value); 
+    break;
 
-}
+    case UIC_COMPONENT_PROGRESSBAR:
+      ((Component_t_ProgressBar*)pComponent)->base.draw = (void(*) (Component_t*))drawProgressBarComponent;
+      ((Component_t_ProgressBar*)pComponent)->base.update = (void(*)(Component_t*, void*))updateProgressBarComponent;
+    break;
 
-UiC_ErrorType e_UiC_newProgressBar(Component_t_ProgressBar* pProgressBar, Page_t* pPage, uint8_t x, uint8_t y)
-{  
-  // Initialize component
-  // Assign function and cast child component to parent Component_t
-  pProgressBar->base.draw   = (void(*)(Component_t*))drawProgressBarComponent; 
-  pProgressBar->base.update = (void(*)(Component_t*, void*))updateProgressBarComponent; 
-  pProgressBar->base.type   = UIC_COMPONENT_PROGRESSBAR;
-  pProgressBar->base.pos.x  = x;
-  pProgressBar->base.pos.y  = y;
-  
-  // Add the component to the page
-  return e_UiC_addComponentToPage((Component_t*) pProgressBar, pPage);
+    case UIC_COMPONENT_MENU_ITEM:
+      ((Component_t_MenuItem*)pComponent)->base.draw = (void(*) (Component_t*))drawMenuItemComponent;
+      ((Component_t_MenuItem*)pComponent)->base.update = (void(*)(Component_t*, void*))updateMenuItemComponent;
+      strncpy(((Component_t_MenuItem*)pComponent)->itemText, baseData.stringData, sizeof((Component_t_MenuItem*)pComponent)->itemText);
 
-}
+    break;
 
-UiC_ErrorType e_UiC_newMenuItem(Component_t_MenuItem* pMenuItem, Component_t_MenuList* pMenu, uint8_t x, uint8_t y, char* value)
-{
-  pMenuItem->base.draw = (void(*) (Component_t*))drawMenuItemComponent;
-  pMenuItem->base.update = (void(*) (Component_t*, void*))updateMenuItemComponent;
-  pMenuItem->base.type   = UIC_COMPONENT_MENU_ITEM;
-  pMenuItem->base.pos.x  = x;
-  pMenuItem->base.pos.y  = y;
-  strncpy(pMenuItem->itemText, value, sizeof(pMenuItem->itemText));
-
-  return e_UiC_addMenuItemToMenu(pMenuItem, pMenu);
-}
-
-UiC_ErrorType e_UiC_newMenu(Component_t_MenuList* pMenu, Page_t* pPage)
-{
-  pMenu->base.draw   = (void(*) (Component_t*))drawMenuListComponent;
-  pMenu->base.update =(void(*) (Component_t*, void*))updateMenuListComponent;
-  pMenu->base.type   = UIC_COMPONENT_MENU_LIST;
-
-  return e_UiC_addComponentToPage((Component_t*) pMenu, pPage);
+    case UIC_COMPONENT_MENU_LIST:
+      ((Component_t_MenuList*)pComponent)->base.draw = (void(*) (Component_t*))drawMenuListComponent;
+      ((Component_t_MenuList*)pComponent)->base.update = (void(*)(Component_t*, void*))updateMenuListComponent;
+    break;
+  }
+  return e_UiC_addComponentToPage((Component_t*) pComponent, pPage);
 }
 
 
@@ -219,6 +204,7 @@ static void updateTextComponent(Component_t_Text* pText, char* value)
 }
 
 
+// TODO: Improve drawing of menu item and menu
 static void drawMenuItemComponent(Component_t_MenuItem* pItem)
 {
 
