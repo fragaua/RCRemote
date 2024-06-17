@@ -16,7 +16,7 @@
 
 /* Page/View declaration */
 Page_t monitoringPage;  // Default page where we can see the the analog monitors etc.
-Page_t optionsMenu;     // Options menu. Contains a group of options and allows us to navigate to other pages such as configuration
+Page_t optionsPage;     // Options menu. Contains a group of options and allows us to navigate to other pages such as configuration
 Page_t configurationPage; // Where we would configure trimming, channel inversion or endpoint adjustment.
 
 
@@ -25,6 +25,10 @@ Component_t_ProgressBar progressBars[N_CHANNELS];
 Component_t_Text        analogId[N_CHANNELS];
 Component_t_Text        communicationState;
 Component_t_Text        test;
+
+Component_t_MenuList    optionsMenu;
+Component_t_MenuItem    options[3];
+
 
 UiC_ErrorType error;
 
@@ -46,10 +50,17 @@ void v_UiM_init(UiM_t_rPorts* pReceiverPorts)
     
     // Initialize all pages
     e_UiC_newPage(&monitoringPage);
-    e_UiC_newPage(&optionsMenu);
+    e_UiC_newPage(&optionsPage);
 
     // Initialize all components
+    error = e_UiC_newMenu(&optionsMenu, &optionsPage);
     uint8_t i;
+    for(i = 0; i < 3; i++)
+    {
+        uint8_t y = (i*5) + (i*2) + 15;
+        error = e_UiC_newMenuItem(&(options[i]), &optionsMenu, 3, y, "Item");
+    }
+    
     for(i = 0; i < N_CHANNELS; i++)
     {
         uint8_t y = (i*5) + (i*2) + 15;
@@ -59,7 +70,7 @@ void v_UiM_init(UiM_t_rPorts* pReceiverPorts)
     }
     e_UiC_newText(&(communicationState), &monitoringPage, 1, 5);  
     
-    e_UiC_newText(&(test), &optionsMenu, 1, 5);  
+    e_UiC_newText(&(test), &optionsPage, 1, 5);  
     v_UiC_updateComponent((Component_t*) &(test), (void*) "Options Menu");
 
 }
@@ -78,7 +89,8 @@ void v_UiM_update()
         v_UiC_updateComponent((Component_t*) &(progressBars[i]), &(UiContextManager.rPorts->remoteChannelInputs[i].u16_Value));
 
     }
-    
+
+
     // TODO: Put into function
     char commStateStr[MAX_NR_CHARS] = "NoComm";
     if(!UiContextManager.rPorts->remoteCommState->b_ConnectionLost)
@@ -93,10 +105,10 @@ void v_UiM_update()
 }
 
 
-
+// TODO: Separate this function into "process page change ui input" and others like "process current page ui input"
 static void v_UiM_processUIManagementInputs(UiM_t_Inputs* uiInputs)
 {
-    static uint8_t prevValueButtonSelect;
+    static uint8_t prevValueButtonSelect, prevValueButtonLeft;
     static uint8_t x = 0; // Temporary to go back and forth the pages. This should be fetched from the UiC 
     // For now, lets take the select button and whenever it's clicked, change the displayed page.
     // Serial.print("Button left: ");
@@ -108,7 +120,7 @@ static void v_UiM_processUIManagementInputs(UiM_t_Inputs* uiInputs)
         if(x == 0)
         {
             x = 1;
-            v_UiC_changePage(&optionsMenu);
+            v_UiC_changePage(&optionsPage);
         }
         else
         {
@@ -118,6 +130,7 @@ static void v_UiM_processUIManagementInputs(UiM_t_Inputs* uiInputs)
     }
 
     prevValueButtonSelect = uiInputs->inputButtonSelect;
+    prevValueButtonLeft = uiInputs->inputButtonLeft;
 
 }
 

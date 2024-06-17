@@ -23,6 +23,7 @@ typedef U8G2_SSD1306_128X64_NONAME_1_HW_I2C U8G2_SSD1306;
 #define MAX_COMPONENTS_PER_VIEW 18u
 #define MAX_NUMBER_PAGES        6u
 #define MAX_NR_CHARS            8u
+#define MAX_NR_MENU_ITEMS       5u 
 
 
 enum UiC_ErrorType
@@ -36,7 +37,8 @@ enum ComponentType
 {
     UIC_COMPONENT_TEXT,
     UIC_COMPONENT_PROGRESSBAR,
-    UIC_COMPONENT_MENU_BUTTON,
+    UIC_COMPONENT_MENU_ITEM,
+    UIC_COMPONENT_MENU_LIST,
     N_COMPONENTS // Last enum is essentially the total number of component types.
 };
 
@@ -69,13 +71,23 @@ typedef struct Component_t_ProgressBar
     uint16_t    value;
 }Component_t_ProgressBar;
 
-typedef struct Component_t_MenuButton
+typedef struct Component_t_MenuItem
 {
     Component_t base;
-    char        buttonText;
+    char        itemText[MAX_NR_CHARS];
+    // TODO: Add possibility to add an image to this menu item
     bool        isSelected;
     bool        isClicked;
-}Component_t_MenuButton;
+}Component_t_MenuItem;
+
+typedef struct Component_t_MenuList
+{
+    Component_t base;
+    Component_t_MenuItem* menuItems[MAX_NR_MENU_ITEMS];
+    Component_t_MenuItem* currentlySelected; // TODO: Better to have the index instead of ptr?
+    uint8_t nItems;
+    
+}Component_t_MenuList;
 
 
 typedef struct Page_t
@@ -112,6 +124,8 @@ void v_UiC_changePage(Page_t* nextPage);
 /** Component handling **/
 UiC_ErrorType e_UiC_newText(Component_t_Text* pText, Page_t* pPage, uint8_t x, uint8_t y);
 UiC_ErrorType e_UiC_newProgressBar(Component_t_ProgressBar* pProgressBar, Page_t* pPage, uint8_t x, uint8_t y);
+UiC_ErrorType e_UiC_newMenuItem(Component_t_MenuItem* pMenuItem, Component_t_MenuList* pMenu, uint8_t x, uint8_t y, char* value);
+UiC_ErrorType e_UiC_newMenu(Component_t_MenuList* pMenu, Page_t* pPage);
 void v_UiC_updateComponent(Component_t* pComponent, void* pValue);
 
 
