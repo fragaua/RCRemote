@@ -56,25 +56,25 @@ void v_UiM_init(UiM_t_rPorts* pReceiverPorts)
 
     // TODO: Make a table with all these components and initialize them via for loop with respective configuration for each one
     // Initialize all components
-    e_UiC_addComponent((Component_t*)&optionsMenu, &optionsPage, UIC_COMPONENT_MENU_LIST, {0});
+    error = e_UiC_addComponent((Component_t*)&optionsMenu, &optionsPage, UIC_COMPONENT_MENU_LIST, {0});
 
     uint8_t i;
     for(i = 0; i < 3; i++)
     {
         uint8_t y = (i*5) + (i*2) + 15;
-        e_UiC_addComponent((Component_t*)&(options[i]), &optionsPage, UIC_COMPONENT_MENU_ITEM, {3, y, "Item"});
-        e_UiC_addMenuItemToMenu(&(options[i]), &optionsMenu); // Temporary to solve an issue
-
+        error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(options[i]), &optionsPage, UIC_COMPONENT_MENU_ITEM, {3, y, "Item"}));
     }
     
     for(i = 0; i < N_CHANNELS; i++)
     {
         uint8_t y = (i*5) + (i*2) + 15;
-        e_UiC_addComponent((Component_t*)&(analogId[i]), &monitoringPage, UIC_COMPONENT_TEXT, {1, (uint8_t)(y+5), pReceiverPorts->remoteChannelInputs[i].c_Name});
-        e_UiC_addComponent((Component_t*)&(progressBars[i]), &monitoringPage, UIC_COMPONENT_PROGRESSBAR, {18, y, NULL});
+        error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(analogId[i]), &monitoringPage, UIC_COMPONENT_TEXT, {1, (uint8_t)(y+5), pReceiverPorts->remoteChannelInputs[i].c_Name}));
+        error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(progressBars[i]), &monitoringPage, UIC_COMPONENT_PROGRESSBAR, {18, y, NULL}));
     }
-    e_UiC_addComponent((Component_t*)&(communicationState), &monitoringPage, UIC_COMPONENT_TEXT, {1, 5, "NoComm"});
-    e_UiC_addComponent((Component_t*)&(test), &optionsPage, UIC_COMPONENT_TEXT, {1, 5, "Options"});
+    error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(communicationState), &monitoringPage, UIC_COMPONENT_TEXT, {1, 5, "NoComm"}));
+    error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(test), &optionsPage, UIC_COMPONENT_TEXT, {1, 5, "Options"}));
+    
+    Serial.println(error);
 }
 
 

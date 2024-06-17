@@ -141,8 +141,6 @@ void v_UiC_changePage(Page_t* nextPage);
 /** Component handling **/
 UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, ComponentType eComponentType, Component_t_Data baseData);
 void v_UiC_updateComponent(Component_t* pComponent, void* pValue);
-// Temporary to solve an issue
- UiC_ErrorType e_UiC_addMenuItemToMenu (Component_t_MenuItem* pItem, Component_t_MenuList* pMenu); // Temporary to solve an issue
 
 
 #endif;

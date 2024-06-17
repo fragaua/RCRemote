@@ -213,7 +213,7 @@ boolean b_transmissionTimeout(boolean bPackageAcknowledged)
 void setup() 
 {
   Serial.begin(115200);
-  Serial.println(freeRam()); // TODO: Halt program, use u8x8 instead and display a msg on the screen
+  Serial.print(freeRam()); // TODO: Halt program, use u8x8 instead and display a msg on the screen
   Serial.print(F("Bytes\n"));
   
   v_initRemoteInputs(RemoteInputs, ResponsiveAnalogs);

@@ -28,7 +28,16 @@ static void updateMenuListComponent(Component_t_MenuList* pMenu, bool* nextItem)
 
 /** Internal UiC functions **/
 static UiC_ErrorType e_UiC_addComponentToPage(Component_t* pComponent, Page_t* pPage);
-// static UiC_ErrorType e_UiC_addMenuItemToMenu (Component_t_MenuItem* pItem, Component_t_MenuList* pMenu); // Temporary to solve an issue
+
+/// @brief Adds a menu item to the previously created MenuList.
+///        Essentially, every MenuItem created needs to have a MenuList created before it, like the following example:
+///        Create MenuList -> Create Menu Item 1 -> Create Menu Item 2.
+///        In this scenario, Menu Item 1 and Menu Item 2 will be added into MenuList
+///        Moreover, the Page where we are adding the MenuItems needs to be the exact same as where we are adding the MenuList, 
+///        otherwise and error will be thrown.
+///        This isn't the clearest approach but it ensures that we can keep having a generic addComponent without having to pass extra parameters
+///       
+static UiC_ErrorType e_UiC_addMenuItemToMenu (Component_t_MenuItem* pItem, Page_t* );
 
 
 static U8G2_SSD1306 DisplayHandle = U8G2_SSD1306(U8G2_R0, U8X8_PIN_NONE);
@@ -110,9 +119,24 @@ static UiC_ErrorType e_UiC_addComponentToPage(Component_t* pComponent, Page_t* p
   
 }
 
-UiC_ErrorType e_UiC_addMenuItemToMenu(Component_t_MenuItem* pItem, Component_t_MenuList* pMenu)
+static UiC_ErrorType e_UiC_addMenuItemToMenu(Component_t_MenuItem* pItem, Page_t* pPage)
 {
-  if(pMenu->nItems >= MAX_NR_MENU_ITEMS-1)
+  /* First we fetch the last added MenuList. We do this by iterating in reverse from the latest items added to the page */
+  Component_t_MenuList* pMenu;
+  uint8_t i;
+  UiC_ErrorType error = UiC_ERROR;
+  for(i = (pPage->nComponents - 1); i >= 0; i--)
+  {
+    if(pPage->componentList[i]->type == UIC_COMPONENT_MENU_LIST)
+    {
+      error = UiC_OK;
+      pMenu = (Component_t_MenuList*) (pPage->componentList[i]);
+      break;
+    }
+  }
+
+  /* Then we can check if the ptr is valid or if we are beyond the nr of items */
+  if((pMenu == NULL) || (pMenu->nItems >= MAX_NR_MENU_ITEMS-1))
   {
     return UiC_ERROR;
   }
@@ -128,6 +152,7 @@ UiC_ErrorType e_UiC_addMenuItemToMenu(Component_t_MenuItem* pItem, Component_t_M
 
 UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, ComponentType eComponentType, Component_t_Data baseData)
 {
+  UiC_ErrorType error;
   // Accessing pos and type directly is safe? Normally, in terms of memory, the "base" from the more complex type we receive here
   // would be in the same place as pos and type from a generic component.
   pComponent->pos.x = baseData.x;
@@ -152,6 +177,8 @@ UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, Compone
       ((Component_t_MenuItem*)pComponent)->base.draw = (void(*) (Component_t*))drawMenuItemComponent;
       ((Component_t_MenuItem*)pComponent)->base.update = (void(*)(Component_t*, void*))updateMenuItemComponent;
       strncpy(((Component_t_MenuItem*)pComponent)->itemText, baseData.stringData, sizeof((Component_t_MenuItem*)pComponent)->itemText);
+      // Aditionally, add the item to the previously created MenuList
+      error = e_UiC_addMenuItemToMenu((Component_t_MenuItem*) pComponent, pPage);
     break;
 
     case UIC_COMPONENT_MENU_LIST:
@@ -159,7 +186,8 @@ UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, Compone
       ((Component_t_MenuList*)pComponent)->base.update = (void(*)(Component_t*, void*))updateMenuListComponent;
     break;
   }
-  return e_UiC_addComponentToPage((Component_t*) pComponent, pPage);
+
+  return (UiC_ErrorType)(e_UiC_addComponentToPage((Component_t*) pComponent, pPage) | error);
 }
 
 
@@ -232,6 +260,8 @@ static void updateMenuListComponent(Component_t_MenuList* pMenu, bool* nextItem)
   uint8_t i;
   if(*nextItem) // nextItem is a 'one-cycle' sort of signal meaning it should be active once every time we want to shift to the next menu entry
   {
+    Serial.println("Next");
+    Serial.println(pMenu->nItems);
     pMenu->currentlySelectedIdx = (pMenu->currentlySelectedIdx + 1) % pMenu->nItems;
   }
 
@@ -240,6 +270,5 @@ static void updateMenuListComponent(Component_t_MenuList* pMenu, bool* nextItem)
   {
     pMenu->menuItems[i]->isSelected = false;
   }
-  Serial.println(pMenu->currentlySelectedIdx);
   pMenu->menuItems[pMenu->currentlySelectedIdx]->isSelected = true;
 }
