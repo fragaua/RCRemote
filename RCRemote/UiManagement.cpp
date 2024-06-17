@@ -63,6 +63,8 @@ void v_UiM_init(UiM_t_rPorts* pReceiverPorts)
     {
         uint8_t y = (i*5) + (i*2) + 15;
         e_UiC_addComponent((Component_t*)&(options[i]), &optionsPage, UIC_COMPONENT_MENU_ITEM, {3, y, "Item"});
+        e_UiC_addMenuItemToMenu(&(options[i]), &optionsMenu); // Temporary to solve an issue
+
     }
     
     for(i = 0; i < N_CHANNELS; i++)
@@ -87,9 +89,7 @@ void v_UiM_update()
     for(i = 0; i < N_CHANNELS; i++)
     {
         v_UiC_updateComponent((Component_t*) &(progressBars[i]), &(UiContextManager.rPorts->remoteChannelInputs[i].u16_Value));
-
     }
-
 
     // TODO: Put into function
     char commStateStr[MAX_NR_CHARS] = "NoComm";
@@ -106,15 +106,15 @@ void v_UiM_update()
 
 
 // TODO: Separate this function into "process page change ui input" and others like "process current page ui input"
+// TODO: Make this function return the 'rising edges' or something, to give as input to the update processes
 static void v_UiM_processUIManagementInputs(UiM_t_Inputs* uiInputs)
 {
     static uint8_t prevValueButtonSelect, prevValueButtonLeft;
     static uint8_t x = 0; // Temporary to go back and forth the pages. This should be fetched from the UiC 
     // For now, lets take the select button and whenever it's clicked, change the displayed page.
-    // Serial.print("Button left: ");
-    // Serial.println(uiInputs->inputButtonLeft);
     bool risingEdge = b_UiM_risingEdge(prevValueButtonSelect, uiInputs->inputButtonSelect, HIGH);
-
+    bool risingEdgeLeft = b_UiM_risingEdge(prevValueButtonLeft, uiInputs->inputButtonLeft, HIGH);
+    // TODO: Add button debouncing and improve overall button reading
     if(risingEdge)
     {
         if(x == 0)
@@ -128,6 +128,7 @@ static void v_UiM_processUIManagementInputs(UiM_t_Inputs* uiInputs)
             v_UiC_changePage(&monitoringPage);
         }
     }
+    v_UiC_updateComponent((Component_t*) &optionsMenu, &risingEdgeLeft);
 
     prevValueButtonSelect = uiInputs->inputButtonSelect;
     prevValueButtonLeft = uiInputs->inputButtonLeft;

@@ -24,11 +24,11 @@ static void drawMenuItemComponent(Component_t_MenuItem* pItem);
 static void updateMenuItemComponent(Component_t_MenuItem* pItem, bool* newState); // TODO: see what more info we need to update button
 
 static void drawMenuListComponent(Component_t_MenuList* pMenu);
-static void updateMenuListComponent(Component_t_MenuList* pMenu, bool* newState); // TODO: see what more info we need to update list
+static void updateMenuListComponent(Component_t_MenuList* pMenu, bool* nextItem); // TODO: see what more info we need to update list
 
 /** Internal UiC functions **/
 static UiC_ErrorType e_UiC_addComponentToPage(Component_t* pComponent, Page_t* pPage);
-static UiC_ErrorType e_UiC_addMenuItemToMenu (Component_t_MenuItem* pItem, Component_t_MenuList* pMenu);
+// static UiC_ErrorType e_UiC_addMenuItemToMenu (Component_t_MenuItem* pItem, Component_t_MenuList* pMenu); // Temporary to solve an issue
 
 
 static U8G2_SSD1306 DisplayHandle = U8G2_SSD1306(U8G2_R0, U8X8_PIN_NONE);
@@ -59,9 +59,9 @@ void v_UiC_draw()
   {
     uint8_t i;
     Component_t* currentComponent;
-    for(i = 0; i < uiCoreContext.pageList[uiCoreContext.currentPage]->nComponents; i++)
+    for(i = 0; i < uiCoreContext.currentPage->nComponents; i++)
     {
-      currentComponent = uiCoreContext.pageList[uiCoreContext.currentPage]->componentList[i]; 
+      currentComponent = uiCoreContext.currentPage->componentList[i]; 
       currentComponent->draw(currentComponent);
     }
 
@@ -79,25 +79,20 @@ UiC_ErrorType e_UiC_newPage(Page_t* pPage)
   }
   pPage->nComponents = 0;
   uiCoreContext.pageList[uiCoreContext.nPages] = pPage;
+  
+  // Aditionally, if this is the first created page, assign it to the current page
+  if(uiCoreContext.nPages == 0)
+  {
+    uiCoreContext.currentPage = pPage;
+  }
+
   uiCoreContext.nPages++;
   return UiC_OK;
 }
 
-// TODO: Provide the ability to change to the next page on the list 
 void v_UiC_changePage(Page_t* nextPage)
 {
-  uint8_t i; 
-  for(i = 0; i < MAX_NUMBER_PAGES; i++) // For now, let's iterate the pages to fetch the index of "nextPage". TODO: Improve this
-  {
-    if(nextPage == uiCoreContext.pageList[i])
-    {
-      break;
-    }
-  }
-  // TODO: Make sure we have a valid page and throw error if we don't
-
-  // Update the current page to the index of "nextPage"
-  uiCoreContext.currentPage = i;
+  uiCoreContext.currentPage = nextPage;
 
 }
 
@@ -115,7 +110,7 @@ static UiC_ErrorType e_UiC_addComponentToPage(Component_t* pComponent, Page_t* p
   
 }
 
-static UiC_ErrorType e_UiC_addMenuItemToMenu(Component_t_MenuItem* pItem, Component_t_MenuList* pMenu)
+UiC_ErrorType e_UiC_addMenuItemToMenu(Component_t_MenuItem* pItem, Component_t_MenuList* pMenu)
 {
   if(pMenu->nItems >= MAX_NR_MENU_ITEMS-1)
   {
@@ -157,7 +152,6 @@ UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, Compone
       ((Component_t_MenuItem*)pComponent)->base.draw = (void(*) (Component_t*))drawMenuItemComponent;
       ((Component_t_MenuItem*)pComponent)->base.update = (void(*)(Component_t*, void*))updateMenuItemComponent;
       strncpy(((Component_t_MenuItem*)pComponent)->itemText, baseData.stringData, sizeof((Component_t_MenuItem*)pComponent)->itemText);
-
     break;
 
     case UIC_COMPONENT_MENU_LIST:
@@ -232,13 +226,20 @@ static void drawMenuListComponent(Component_t_MenuList* pMenu)
 
 }
 
-static void updateMenuListComponent(Component_t_MenuList* pMenu, bool* newState)
+// TODO: Eventually we need to also include here the input for "select button" if a draw update needs to take place.
+static void updateMenuListComponent(Component_t_MenuList* pMenu, bool* nextItem)
 {
   uint8_t i;
-  for(i = 0; i < pMenu->nItems; i++)
+  if(*nextItem) // nextItem is a 'one-cycle' sort of signal meaning it should be active once every time we want to shift to the next menu entry
   {
-    pMenu->menuItems[i]->base.update((Component_t*) pMenu->menuItems[i], (void*) newState);
+    pMenu->currentlySelectedIdx = (pMenu->currentlySelectedIdx + 1) % pMenu->nItems;
   }
 
-
+  // 'De-select' all menu entries and ultimately select the one calculated above.
+  for(i = 0; i < pMenu->nItems; i++)
+  {
+    pMenu->menuItems[i]->isSelected = false;
+  }
+  Serial.println(pMenu->currentlySelectedIdx);
+  pMenu->menuItems[pMenu->currentlySelectedIdx]->isSelected = true;
 }

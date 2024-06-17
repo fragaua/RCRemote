@@ -93,7 +93,7 @@ typedef struct Component_t_MenuList
 {
     Component_t base;
     Component_t_MenuItem* menuItems[MAX_NR_MENU_ITEMS];
-    Component_t_MenuItem* currentlySelected; // TODO: Better to have the index instead of ptr?
+    uint8_t currentlySelectedIdx; // TODO: Better to have the index instead of ptr?
     uint8_t nItems;
     
 }Component_t_MenuList;
@@ -112,10 +112,18 @@ typedef struct Page_t_Inputs
 
 }Page_t_Inputs;
 
+
+// 17/06/2024 - Changed 'currentPage' from uint8 index to an actual pointer
+// This allows us to switch to pages in an absolute fashion without having to
+// have a 'fetch page' function like we had. 
+// Analogous to this, I will change the MenuItem 'currentlySelected' to an index
+// instead of a pointer, because for menus, I am more interested in having it
+// be relatively selected to other items
 typedef struct UiCore_t
 {
     Page_t* pageList[MAX_NUMBER_PAGES];
-    uint8_t currentPage;
+    // uint8_t currentPage;
+    Page_t* currentPage; 
     uint8_t nPages;
 
     Page_t_Inputs inputs;
@@ -133,6 +141,8 @@ void v_UiC_changePage(Page_t* nextPage);
 /** Component handling **/
 UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, ComponentType eComponentType, Component_t_Data baseData);
 void v_UiC_updateComponent(Component_t* pComponent, void* pValue);
+// Temporary to solve an issue
+ UiC_ErrorType e_UiC_addMenuItemToMenu (Component_t_MenuItem* pItem, Component_t_MenuList* pMenu); // Temporary to solve an issue
 
 
 #endif;
