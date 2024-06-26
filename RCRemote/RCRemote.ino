@@ -95,7 +95,6 @@ boolean b_initRadio(RF24* pRadio)
 
 void v_computeButtonVoltageDividers(UiM_t_Inputs* pButtons)
 {
-  // TODO: Debounce button input
   int i_Analog_Read = analogRead(BUTTON_ANALOG_PIN);
   // Reset buttons by default
   pButtons->inputButtonLeft    = LOW; 
@@ -183,7 +182,7 @@ boolean b_sendPayload(RF24* pRadio, RFPayload* pPayload, unsigned long* lTransmi
 {
   // Time measure
   unsigned long lStartTimer = micros(); 
-  boolean bPackageAcknowledged = pRadio->write(&pPayload, sizeof(RFPayload));             
+  boolean bPackageAcknowledged = pRadio->write(pPayload, sizeof(RFPayload));             
   unsigned long lEndTimer = micros();
 
   *lTransmissionTime = (lEndTimer - lStartTimer); // Total time to tx or timeout(configured internaly in rf24 as 60-70ms) if never acknowledged 
@@ -231,7 +230,6 @@ void loop()
   unsigned long lTxTime;
   v_readChannelInputs(RemoteInputs, ResponsiveAnalogs);
   v_buildPayload(RemoteInputs, &payload);
-
   boolean bSendSuccess = b_sendPayload(&Radio, &payload, &(RemoteCommunicationState.l_TransmissionTime));
   RemoteCommunicationState.b_ConnectionLost = b_transmissionTimeout(bSendSuccess);
 
