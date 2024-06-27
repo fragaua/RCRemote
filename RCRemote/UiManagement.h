@@ -28,14 +28,13 @@
 
 
 
-
 // Contains all the inputs the application is able to handle for User Interaction as well as processed versions (rising edge, hold..)
 typedef struct UiM_t_Inputs
 {
     // Project specific set of Ui interface
-    uint16_t     inputButtonLeft       : 1;
-    uint16_t     inputButtonRight      : 1;
-    uint16_t     inputButtonSelect     : 1;
+    uint16_t     inputButtonLeft        : 1;
+    uint16_t     inputButtonRight       : 1;
+    uint16_t     inputButtonSelect      : 1;
 
     uint16_t     risingEdgeButtonLeft   : 1;
     uint16_t     risingEdgeButtonRight  : 1;
@@ -63,6 +62,12 @@ typedef struct UiM_t_rPorts
 
 }UiM_t_rPorts;
 
+// Contains all necessary data to inform the UiManagement caller of changes. This is project specific information
+typedef struct UiM_t_pPorts
+{
+    bool analogSendAllowed;
+}UiM_t_pPorts;
+
 
 // Contains all the inputs necessary to update the internal components.
 typedef struct UiM_t_contextManager
@@ -75,11 +80,12 @@ typedef struct UiM_t_contextManager
     /**** Provider Ports *****/
     // Will provide configuration stuff. For this particular scenario, the configuration
     // is also available through the RemoteChannelInput_t in the receiver ports.
+    UiM_t_pPorts* pPorts;
 
 }UiM_t_contextManager;
 
 
-void v_UiM_init(UiM_t_rPorts* pReceiverPorts);
+void v_UiM_init(UiM_t_rPorts* pReceiverPorts, UiM_t_pPorts* pProviderPorts);
 void v_UiM_update();
 
 

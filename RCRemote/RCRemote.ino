@@ -25,6 +25,7 @@ RemoteChannelInput_t RemoteInputs[N_CHANNELS] =
 RemoteCommunicationState_t RemoteCommunicationState = {false, 0l};
 UiM_t_Inputs  uiInputs;
 UiM_t_rPorts  uiInputData = {&uiInputs, RemoteInputs, &RemoteCommunicationState};
+UiM_t_pPorts  uiResponseData = {false};
 
 #if RESPONSIVE_ANALOG_READ == ON
 #include <ResponsiveAnalogRead.h>
@@ -219,7 +220,7 @@ void setup()
   boolean b_initRadioSuccess = b_initRadio(&Radio);
   // TODO: Display a msg on screen if radio wasn't properly initialized
   
-  v_UiM_init(&uiInputData);
+  v_UiM_init(&uiInputData, &uiResponseData);
 
 }
 
@@ -229,9 +230,13 @@ void loop()
 
   unsigned long lTxTime;
   v_readChannelInputs(RemoteInputs, ResponsiveAnalogs);
-  v_buildPayload(RemoteInputs, &payload);
-  boolean bSendSuccess = b_sendPayload(&Radio, &payload, &(RemoteCommunicationState.l_TransmissionTime));
-  RemoteCommunicationState.b_ConnectionLost = b_transmissionTimeout(bSendSuccess);
+ 
+  if(uiResponseData.analogSendAllowed)
+  {
+    v_buildPayload(RemoteInputs, &payload);
+    boolean bSendSuccess = b_sendPayload(&Radio, &payload, &(RemoteCommunicationState.l_TransmissionTime));
+    RemoteCommunicationState.b_ConnectionLost = b_transmissionTimeout(bSendSuccess);
+  }
 
 #if BATTERY_INDICATION == ON
   bool battery_ready = battery.readBatteryVoltage(); // This is working but can't be seen with the arduino connected to pc. Otherwise will read the 5v instead of 9

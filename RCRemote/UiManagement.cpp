@@ -45,6 +45,7 @@ static UiM_t_contextManager UiContextManager;
 static void v_UiM_processUIManagementInputs(UiM_t_Inputs* uiInputs);
 static bool b_UiM_risingEdge(uint8_t prevValue, uint8_t currentValue, uint8_t desiredEdge);
 static bool b_UiM_buttonHold(bool risingEdge, bool currentValue, unsigned long* timeHolding);
+static void v_UiM_updateProviderPorts(void);
 
 
 /**  Project Specific functions  **/ // Todo: eventually we can have a separate project specific file.
@@ -52,10 +53,14 @@ static void buildCommunicationString(bool connectionDropped, unsigned long txTim
 static void switchTrimmingPage(void);
 
 
-void v_UiM_init(UiM_t_rPorts* pReceiverPorts)
+void v_UiM_init(UiM_t_rPorts* pReceiverPorts, UiM_t_pPorts* pProviderPorts)
 {
 
+    uint8_t i;
+    
     UiContextManager.rPorts = pReceiverPorts;
+    UiContextManager.pPorts = pProviderPorts;
+
     // Initialize UiCore framework. This starts up the display handle and the core context 
     // (later we can maybe chose the handle to use)
     v_UiC_init();
@@ -64,74 +69,70 @@ void v_UiM_init(UiM_t_rPorts* pReceiverPorts)
     e_UiC_newPage(&monitoringPage);
     e_UiC_newPage(&optionsPage);
 
+
     // Initialize all components
-    error = e_UiC_addComponent((Component_t*)&optionsMenu, &optionsPage, UIC_COMPONENT_MENU_LIST, {0});
-    error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(options[0]), &optionsPage, UIC_COMPONENT_MENU_ITEM, {3, 20,  "Trimming", (void*) switchTrimmingPage}));
-    error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(options[1]), &optionsPage, UIC_COMPONENT_MENU_ITEM, {3, 27, "EndPointAdj"}));
-    error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(options[2]), &optionsPage, UIC_COMPONENT_MENU_ITEM, {3, 34, "Invert"}));
-    
-    uint8_t i;
+
     for(i = 0; i < N_CHANNELS; i++)
     {
-        uint8_t y = (i*7) + 20;
-        uint8_t y2 = (i*7) + 15; // TODO: Improve this
-        error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(analogId[i]),     &monitoringPage, UIC_COMPONENT_TEXT,        {1,  y, pReceiverPorts->remoteChannelInputs[i].c_Name}));
-        error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(progressBars[i]), &monitoringPage, UIC_COMPONENT_PROGRESSBAR, {18, y2, NULL}));
+        uint8_t y = (i*7) + 15; // TODO: Improve this
+        e_UiC_addComponent((Component_t*)&(analogId[i]),     &monitoringPage, UIC_COMPONENT_TEXT,        {1,  y+5, pReceiverPorts->remoteChannelInputs[i].c_Name});
+        e_UiC_addComponent((Component_t*)&(progressBars[i]), &monitoringPage, UIC_COMPONENT_PROGRESSBAR, {18, y, NULL});
     }
-    error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*) &(communicationState), &monitoringPage, UIC_COMPONENT_TEXT, {1, 5, "NoComm"}));
+
+    e_UiC_addComponent((Component_t*)&optionsMenu,           &optionsPage,    UIC_COMPONENT_MENU_LIST, {0});
+    e_UiC_addComponent((Component_t*)&(options[0]),          &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 20, "Trimming", (void*) switchTrimmingPage});
+    e_UiC_addComponent((Component_t*)&(options[1]),          &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 27, "EndPointAdj"});
+    e_UiC_addComponent((Component_t*)&(options[2]),          &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 34, "Invert"});
+
 
     // DEBUG    
-    error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*) &(testButton1),               &optionsPage,    UIC_COMPONENT_TEXT, {35, 5, ""}));
-    error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*) &(testButton2),               &monitoringPage,    UIC_COMPONENT_TEXT, {35, 5, ""}));
+    e_UiC_addComponent((Component_t*) &(testButton1),        &optionsPage,     UIC_COMPONENT_TEXT, {35, 5, ""});
+    e_UiC_addComponent((Component_t*) &(testButton2),        &monitoringPage,  UIC_COMPONENT_TEXT, {35, 5, ""});
+    e_UiC_addComponent((Component_t*) &(communicationState), &monitoringPage,  UIC_COMPONENT_TEXT,  {1, 5, "NoComm"});
 
 
-    Serial.println(error);
 }
 
 
 void v_UiM_update()
 {
+    char commStateStr[MAX_NR_CHARS] = "NoComm";
+    char tb1[7];
+    uint8_t i;
+
+    // DEBUG
+    snprintf(tb1, 7, "%d %d %d", UiContextManager.rPorts->uiManagementInputs->inputButtonLeft, 
+                                 UiContextManager.rPorts->uiManagementInputs->inputButtonSelect, 
+                                 UiContextManager.rPorts->uiManagementInputs->inputButtonRight);
+    buildCommunicationString(UiContextManager.rPorts->remoteCommState->b_ConnectionLost, UiContextManager.rPorts->remoteCommState->l_TransmissionTime, commStateStr);
+    
     // Process input buttons
     v_UiM_processUIManagementInputs(UiContextManager.rPorts->uiManagementInputs);
 
-    // Update pages // TODO: put into function
+    // Update pages (Temporary? How do I want to move to the options page) 
     if(UiContextManager.rPorts->uiManagementInputs->holdButtonSelect)
     {
         v_UiC_changePage(&optionsPage);
     }
-    else if(UiContextManager.rPorts->uiManagementInputs->holdButtonRight)
-    {
-        v_UiC_changePage(&monitoringPage);
-    }
-    
-    // Update all components with received data // TODO: Put into function and remove this temp
-    UiC_Input_t temp = {UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonLeft, 
-                        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonRight, 
-                        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonSelect};
 
-    v_UiC_updateComponent((Component_t*) &optionsMenu, (void*) &temp);
     
-
-    uint8_t i;
+    // Update all components with received data
     for(i = 0; i < N_CHANNELS; i++)
     {
         v_UiC_updateComponent((Component_t*) &(progressBars[i]), &(UiContextManager.rPorts->remoteChannelInputs[i].u16_Value));
     }
 
-    char commStateStr[MAX_NR_CHARS] = "NoComm";
-    buildCommunicationString(UiContextManager.rPorts->remoteCommState->b_ConnectionLost, UiContextManager.rPorts->remoteCommState->l_TransmissionTime, commStateStr);
+    // TODO: remove this temp
+    UiC_Input_t temp = {UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonLeft, 
+                        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonRight, 
+                        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonSelect}; 
+    v_UiC_updateComponent((Component_t*) &optionsMenu, (void*) &temp);
     v_UiC_updateComponent((Component_t*) &(communicationState), (void*) commStateStr);
-
-    
-
-    // DEBUG
-    char tb1[7];
-    snprintf(tb1, 7, "%d %d %d", UiContextManager.rPorts->uiManagementInputs->inputButtonLeft, UiContextManager.rPorts->uiManagementInputs->inputButtonSelect, UiContextManager.rPorts->uiManagementInputs->inputButtonRight);
-
-    v_UiC_updateComponent((Component_t*) &(testButton1), (void*) tb1);
-    v_UiC_updateComponent((Component_t*) &(testButton2), (void*) tb1);
+    v_UiC_updateComponent((Component_t*) &(testButton1),        (void*) tb1);
+    v_UiC_updateComponent((Component_t*) &(testButton2),        (void*) tb1);
 
 
+    v_UiM_updateProviderPorts();
 
     // Draw current active page
     v_UiC_draw();
@@ -139,10 +140,15 @@ void v_UiM_update()
 }
 
 
-static void v_UiM_pageManagement(UiM_t_Inputs* uiInputs, Page_t* currentPage)
+static void v_UiM_updateProviderPorts(void)
 {
-
-    
+    // For now, updates the "analogSendAllowed" based on the current page.
+    UiContextManager.pPorts->analogSendAllowed = false;
+    if(UiC_getActivePage() == &monitoringPage)
+    {
+        // The analog send is only allowed on the monitoring page.
+        UiContextManager.pPorts->analogSendAllowed = true;
+    }
 }
 
 static void v_UiM_processUIManagementInputs(UiM_t_Inputs* uiInputs)
@@ -151,18 +157,18 @@ static void v_UiM_processUIManagementInputs(UiM_t_Inputs* uiInputs)
     static unsigned long timeHoldingLeft   = 0;
     static unsigned long timeHoldingRight  = 0;
 
-    uiInputs->risingEdgeButtonSelect = b_UiM_risingEdge(uiInputs->prevButtonSelect,   uiInputs->inputButtonSelect, HIGH);
-    uiInputs->risingEdgeButtonLeft   = b_UiM_risingEdge(uiInputs->prevButtonLeft,     uiInputs->inputButtonLeft,   HIGH);
-    uiInputs->risingEdgeButtonRight  = b_UiM_risingEdge(uiInputs->prevButtonRight,    uiInputs->inputButtonRight,  HIGH);
+    uiInputs->risingEdgeButtonSelect       = b_UiM_risingEdge(uiInputs->prevButtonSelect,   uiInputs->inputButtonSelect, HIGH);
+    uiInputs->risingEdgeButtonLeft         = b_UiM_risingEdge(uiInputs->prevButtonLeft,     uiInputs->inputButtonLeft,   HIGH);
+    uiInputs->risingEdgeButtonRight        = b_UiM_risingEdge(uiInputs->prevButtonRight,    uiInputs->inputButtonRight,  HIGH);
     
-    uiInputs->holdButtonSelect       = b_UiM_buttonHold(uiInputs->risingEdgeButtonSelect, uiInputs->inputButtonSelect, &timeHoldingSelect);
-    uiInputs->holdButtonLeft         = b_UiM_buttonHold(uiInputs->risingEdgeButtonLeft,   uiInputs->inputButtonLeft,   &timeHoldingLeft);
-    uiInputs->holdButtonRight        = b_UiM_buttonHold(uiInputs->risingEdgeButtonRight,  uiInputs->inputButtonRight,  &timeHoldingRight);
+    uiInputs->holdButtonSelect             = b_UiM_buttonHold(uiInputs->risingEdgeButtonSelect, uiInputs->inputButtonSelect, &timeHoldingSelect);
+    uiInputs->holdButtonLeft               = b_UiM_buttonHold(uiInputs->risingEdgeButtonLeft,   uiInputs->inputButtonLeft,   &timeHoldingLeft);
+    uiInputs->holdButtonRight              = b_UiM_buttonHold(uiInputs->risingEdgeButtonRight,  uiInputs->inputButtonRight,  &timeHoldingRight);
 
     // Update button states for next cycle
-    uiInputs->prevButtonSelect   = uiInputs->inputButtonSelect;
-    uiInputs->prevButtonLeft     = uiInputs->inputButtonLeft;
-    uiInputs->prevButtonRight    = uiInputs->inputButtonRight;
+    uiInputs->prevButtonSelect             = uiInputs->inputButtonSelect;
+    uiInputs->prevButtonLeft               = uiInputs->inputButtonLeft;
+    uiInputs->prevButtonRight              = uiInputs->inputButtonRight;
 
 }
 
