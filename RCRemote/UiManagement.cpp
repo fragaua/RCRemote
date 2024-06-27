@@ -24,7 +24,10 @@ Page_t configurationPage; // Where we would configure trimming, channel inversio
 Component_t_ProgressBar progressBars[N_CHANNELS];
 Component_t_Text        analogId[N_CHANNELS];
 Component_t_Text        communicationState;
-Component_t_Text        test;
+
+// DEBUG
+Component_t_Text        testButton1;
+Component_t_Text        testButton2;
 
 Component_t_MenuList    optionsMenu;
 Component_t_MenuItem    options[3];
@@ -43,6 +46,12 @@ static void v_UiM_processUIManagementInputs(UiM_t_Inputs* uiInputs);
 static bool b_UiM_risingEdge(uint8_t prevValue, uint8_t currentValue, uint8_t desiredEdge);
 static bool b_UiM_buttonHold(bool risingEdge, bool currentValue, unsigned long* timeHolding);
 
+
+/**  Project Specific functions  **/ // Todo: eventually we can have a separate project specific file.
+static void buildCommunicationString(bool connectionDropped, unsigned long txTime, char* commStateString);
+static void switchTrimmingPage(void);
+
+
 void v_UiM_init(UiM_t_rPorts* pReceiverPorts)
 {
 
@@ -57,22 +66,24 @@ void v_UiM_init(UiM_t_rPorts* pReceiverPorts)
 
     // Initialize all components
     error = e_UiC_addComponent((Component_t*)&optionsMenu, &optionsPage, UIC_COMPONENT_MENU_LIST, {0});
-
-    uint8_t i;
-    for(i = 0; i < 3; i++)
-    {
-        uint8_t y = (i*7) + 15;
-        error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(options[i]), &optionsPage, UIC_COMPONENT_MENU_ITEM, {3, y, "Item"}));
-    }
+    error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(options[0]), &optionsPage, UIC_COMPONENT_MENU_ITEM, {3, 20,  "Trimming", (void*) switchTrimmingPage}));
+    error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(options[1]), &optionsPage, UIC_COMPONENT_MENU_ITEM, {3, 27, "EndPointAdj"}));
+    error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(options[2]), &optionsPage, UIC_COMPONENT_MENU_ITEM, {3, 34, "Invert"}));
     
+    uint8_t i;
     for(i = 0; i < N_CHANNELS; i++)
     {
         uint8_t y = (i*7) + 20;
+        uint8_t y2 = (i*7) + 15; // TODO: Improve this
         error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(analogId[i]),     &monitoringPage, UIC_COMPONENT_TEXT,        {1,  y, pReceiverPorts->remoteChannelInputs[i].c_Name}));
-        error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(progressBars[i]), &monitoringPage, UIC_COMPONENT_PROGRESSBAR, {18, y, NULL}));
+        error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*)&(progressBars[i]), &monitoringPage, UIC_COMPONENT_PROGRESSBAR, {18, y2, NULL}));
     }
     error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*) &(communicationState), &monitoringPage, UIC_COMPONENT_TEXT, {1, 5, "NoComm"}));
-    error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*) &(test),               &optionsPage,    UIC_COMPONENT_TEXT, {1, 5, "Options"}));
+
+    // DEBUG    
+    error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*) &(testButton1),               &optionsPage,    UIC_COMPONENT_TEXT, {35, 5, ""}));
+    error = (UiC_ErrorType)(error | e_UiC_addComponent((Component_t*) &(testButton2),               &monitoringPage,    UIC_COMPONENT_TEXT, {35, 5, ""}));
+
 
     Serial.println(error);
 }
@@ -80,7 +91,6 @@ void v_UiM_init(UiM_t_rPorts* pReceiverPorts)
 
 void v_UiM_update()
 {
-
     // Process input buttons
     v_UiM_processUIManagementInputs(UiContextManager.rPorts->uiManagementInputs);
 
@@ -94,8 +104,13 @@ void v_UiM_update()
         v_UiC_changePage(&monitoringPage);
     }
     
-    // Update all components with received data // TODO: Put into function
-    v_UiC_updateComponent((Component_t*) &optionsMenu, (void*) UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonLeft);
+    // Update all components with received data // TODO: Put into function and remove this temp
+    UiC_Input_t temp = {UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonLeft, 
+                        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonRight, 
+                        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonSelect};
+
+    v_UiC_updateComponent((Component_t*) &optionsMenu, (void*) &temp);
+    
 
     uint8_t i;
     for(i = 0; i < N_CHANNELS; i++)
@@ -103,13 +118,20 @@ void v_UiM_update()
         v_UiC_updateComponent((Component_t*) &(progressBars[i]), &(UiContextManager.rPorts->remoteChannelInputs[i].u16_Value));
     }
 
-    // TODO: Put into function
     char commStateStr[MAX_NR_CHARS] = "NoComm";
-    if(!UiContextManager.rPorts->remoteCommState->b_ConnectionLost)
-    {
-        snprintf(commStateStr, MAX_NR_CHARS, "%d US", UiContextManager.rPorts->remoteCommState->l_TransmissionTime);
-    }
+    buildCommunicationString(UiContextManager.rPorts->remoteCommState->b_ConnectionLost, UiContextManager.rPorts->remoteCommState->l_TransmissionTime, commStateStr);
     v_UiC_updateComponent((Component_t*) &(communicationState), (void*) commStateStr);
+
+    
+
+    // DEBUG
+    char tb1[7];
+    snprintf(tb1, 7, "%d %d %d", UiContextManager.rPorts->uiManagementInputs->inputButtonLeft, UiContextManager.rPorts->uiManagementInputs->inputButtonSelect, UiContextManager.rPorts->uiManagementInputs->inputButtonRight);
+
+    v_UiC_updateComponent((Component_t*) &(testButton1), (void*) tb1);
+    v_UiC_updateComponent((Component_t*) &(testButton2), (void*) tb1);
+
+
 
     // Draw current active page
     v_UiC_draw();
@@ -117,8 +139,12 @@ void v_UiM_update()
 }
 
 
-// TODO: Separate this function into "process page change ui input" and others like "process current page ui input"
-// TODO: Make this function return the 'rising edges' or something, to give as input to the update processes
+static void v_UiM_pageManagement(UiM_t_Inputs* uiInputs, Page_t* currentPage)
+{
+
+    
+}
+
 static void v_UiM_processUIManagementInputs(UiM_t_Inputs* uiInputs)
 {  
     static unsigned long timeHoldingSelect = 0;
@@ -154,4 +180,21 @@ static bool b_UiM_buttonHold(bool risingEdge, bool currentValue, unsigned long* 
     }
 
     return ((millis() - *timeHolding) > 1500) && (currentValue == HIGH);
+}
+
+
+
+/** Project specific **/
+static void buildCommunicationString(bool connectionDropped, unsigned long txTime, char* commStateString)
+{
+    if(!connectionDropped)
+    {
+        snprintf(commStateString, MAX_NR_CHARS, "%d US", txTime);
+    }
+}
+
+
+static void switchTrimmingPage(void)
+{
+    v_UiC_changePage(&monitoringPage);
 }

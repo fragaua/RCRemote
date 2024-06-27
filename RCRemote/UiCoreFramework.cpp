@@ -21,10 +21,10 @@ static void drawTextComponent(Component_t_Text* pText);
 static void updateTextComponent(Component_t_Text* pText, char* value);
 
 static void drawMenuItemComponent(Component_t_MenuItem* pItem);
-static void updateMenuItemComponent(Component_t_MenuItem* pItem, bool* newState); // TODO: see what more info we need to update button
+static void updateMenuItemComponent(Component_t_MenuItem* pItem, UiC_Input_t* inputs);
 
 static void drawMenuListComponent(Component_t_MenuList* pMenu);
-static void updateMenuListComponent(Component_t_MenuList* pMenu, bool* nextItem); // TODO: see what more info we need to update list
+static void updateMenuListComponent(Component_t_MenuList* pMenu, UiC_Input_t* inputs); 
 
 /** Internal UiC functions **/
 static UiC_ErrorType e_UiC_addComponentToPage(Component_t* pComponent, Page_t* pPage);
@@ -174,40 +174,47 @@ static bool b_UiC_isComponentInPage(Component_t* pComponent, Page_t* pPage)
 /** Component handling **/
 
 
-UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, ComponentType eComponentType, Component_t_Data baseData)
-{
+UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, ComponentType eComponentType, Component_t_Data componentParameters)
+{ 
+  //TODO: Create a static init function for each component, to make this function cleaner
   UiC_ErrorType error;
   // Accessing pos and type directly is safe? Normally, in terms of memory, the "base" from the more complex type we receive here
   // would be in the same place as pos and type from a generic component.
-  pComponent->pos.x = baseData.x;
-  pComponent->pos.y = baseData.y;
-  pComponent->type = eComponentType; 
+
+  pComponent->pos.x = componentParameters.x;
+  pComponent->pos.y = componentParameters.y;
+  pComponent->type  = eComponentType; 
+
   switch(eComponentType) // TODO: I wanted a LUT for the draw and update functions. I would have to change the types to void*, however this function would be considerably smaller
   {
     case UIC_COMPONENT_TEXT:
-      ((Component_t_Text*)pComponent)->base.draw = (void(*) (Component_t*))drawTextComponent;
-      ((Component_t_Text*)pComponent)->base.update = (void(*)(Component_t*, void*))updateTextComponent;
+      ((Component_t_Text*)pComponent)->base.draw   = (void(*) (Component_t*))        drawTextComponent;
+      ((Component_t_Text*)pComponent)->base.update = (void(*) (Component_t*, void*)) updateTextComponent;
       // strncpy <n> parameter takes the size of the <destination>, as per documentation, if <source> is larger, the remainder of the bytes are 0-padded
       // No issues shall arise if we pass in too big of a string.
-      strncpy(((Component_t_Text*)pComponent)->value, baseData.stringData, sizeof((Component_t_Text*)pComponent)->value); 
+      strncpy(((Component_t_Text*)pComponent)->value, componentParameters.stringData, sizeof((Component_t_Text*)pComponent)->value); 
     break;
 
     case UIC_COMPONENT_PROGRESSBAR:
-      ((Component_t_ProgressBar*)pComponent)->base.draw = (void(*) (Component_t*))drawProgressBarComponent;
-      ((Component_t_ProgressBar*)pComponent)->base.update = (void(*)(Component_t*, void*))updateProgressBarComponent;
+      ((Component_t_ProgressBar*)pComponent)->base.draw   = (void(*) (Component_t*))        drawProgressBarComponent;
+      ((Component_t_ProgressBar*)pComponent)->base.update = (void(*) (Component_t*, void*)) updateProgressBarComponent;
     break;
 
     case UIC_COMPONENT_MENU_ITEM:
-      ((Component_t_MenuItem*)pComponent)->base.draw = (void(*) (Component_t*))drawMenuItemComponent;
-      ((Component_t_MenuItem*)pComponent)->base.update = (void(*)(Component_t*, void*))updateMenuItemComponent;
-      strncpy(((Component_t_MenuItem*)pComponent)->itemText, baseData.stringData, sizeof((Component_t_MenuItem*)pComponent)->itemText);
+      ((Component_t_MenuItem*)pComponent)->base.draw   = (void(*) (Component_t*))        drawMenuItemComponent;
+      ((Component_t_MenuItem*)pComponent)->base.update = (void(*) (Component_t*, void*)) updateMenuItemComponent;
+      
+      strncpy(((Component_t_MenuItem*)pComponent)->itemText, componentParameters.stringData, sizeof((Component_t_MenuItem*)pComponent)->itemText);
+
+      ((Component_t_MenuItem*)pComponent)->callback = (void(*) (void*))componentParameters.extraData; // Set the callback
+
       // Aditionally, add the item to the previously created MenuList
       error = e_UiC_addMenuItemToMenu((Component_t_MenuItem*) pComponent, pPage);
     break;
 
     case UIC_COMPONENT_MENU_LIST:
-      ((Component_t_MenuList*)pComponent)->base.draw = (void(*) (Component_t*))drawMenuListComponent;
-      ((Component_t_MenuList*)pComponent)->base.update = (void(*)(Component_t*, void*))updateMenuListComponent;
+      ((Component_t_MenuList*)pComponent)->base.draw   = (void(*) (Component_t*))       drawMenuListComponent;
+      ((Component_t_MenuList*)pComponent)->base.update = (void(*) (Component_t*, void*))updateMenuListComponent;
     break;
   }
 
@@ -266,9 +273,9 @@ static void drawMenuItemComponent(Component_t_MenuItem* pItem)
 
 }
 
-static void updateMenuItemComponent(Component_t_MenuItem* pItem, bool* newState)
+static void updateMenuItemComponent(Component_t_MenuItem* pItem, UiC_Input_t* newState)
 {
-  pItem->isSelected = *newState;
+
 }
 
 static void drawMenuListComponent(Component_t_MenuList* pMenu)
@@ -282,19 +289,36 @@ static void drawMenuListComponent(Component_t_MenuList* pMenu)
 
 }
 
-// TODO: Eventually we need to also include here the input for "select button" if a draw update needs to take place.
-static void updateMenuListComponent(Component_t_MenuList* pMenu, bool* nextItem)
+static void updateMenuListComponent(Component_t_MenuList* pMenu, UiC_Input_t* pInputs)
 {
   uint8_t i;
-  if(nextItem) // nextItem is a 'one-cycle' sort of signal meaning it should be active once every time we want to shift to the next menu entry
-  {
-    pMenu->currentlySelectedIdx = (pMenu->currentlySelectedIdx + 1) % pMenu->nItems;
-  }
-
-  // 'De-select' all menu entries and ultimately select the one calculated above.
+    
+  // 'De-select' all menu entries and ultimately select the one calculated below.
+  // Also restart the selectedMenuItem and remove any clicked item
+  pMenu->menuItems[pMenu->currentlySelectedIdx]->isClicked = false;
   for(i = 0; i < pMenu->nItems; i++)
   {
     pMenu->menuItems[i]->isSelected = false;
   }
+
+  if(pInputs->inputDown)
+  {
+    pMenu->currentlySelectedIdx = (pMenu->currentlySelectedIdx + 1) % pMenu->nItems; 
+  }
+  else if(pInputs->inputUp)
+  {
+    pMenu->currentlySelectedIdx = (pMenu->currentlySelectedIdx - 1) % pMenu->nItems; // TODO: Fix this not going to the right option
+  }
+  else if(pInputs->inputSelect)
+  {
+    pMenu->menuItems[pMenu->currentlySelectedIdx]->isClicked = true; // Set the internal "clicked" state of button
+    
+    if(pMenu->menuItems[pMenu->currentlySelectedIdx]->callback != NULL)
+    {
+      pMenu->menuItems[pMenu->currentlySelectedIdx]->callback(NULL);   // Call the "callback" function to execute an action
+    }
+
+  }
+
   pMenu->menuItems[pMenu->currentlySelectedIdx]->isSelected = true;
 }

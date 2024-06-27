@@ -102,15 +102,15 @@ void v_computeButtonVoltageDividers(UiM_t_Inputs* pButtons)
   pButtons->inputButtonSelect  = LOW; 
 
 
-  if(i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_DOWN)
+  if(i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_B1)
   {
     pButtons->inputButtonRight = HIGH;
   }
-  else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_DOWN && i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_UP)
+  else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_B1 && i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_B2)
   {
     pButtons->inputButtonLeft = HIGH;
   }
-  else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_UP && i_Analog_Read < 1000)
+  else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_B2 && i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_B3)
   {
     pButtons->inputButtonSelect = HIGH;
   }

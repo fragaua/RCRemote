@@ -22,7 +22,7 @@ typedef U8G2_SSD1306_128X64_NONAME_1_HW_I2C U8G2_SSD1306;
 // Tweaking these values will allow for more or less memory usage by the overall Ui Core and Management systems
 #define MAX_COMPONENTS_PER_VIEW 18u
 #define MAX_NUMBER_PAGES        6u
-#define MAX_NR_CHARS            8u
+#define MAX_NR_CHARS            15u
 #define MAX_NR_MENU_ITEMS       5u 
 
 
@@ -56,6 +56,7 @@ typedef struct Component_t_Data
     uint8_t x;
     uint8_t y;
     char*   stringData;
+    void*   extraData;
 }Component_t_Data;
 
 // Component base. Every component child has a reference to this parent structure.
@@ -87,6 +88,7 @@ typedef struct Component_t_MenuItem
     // TODO: Add possibility to add an image to this menu item
     bool        isSelected;
     bool        isClicked;
+    void        (*callback)(void* params);
 }Component_t_MenuItem;
 
 typedef struct Component_t_MenuList
@@ -98,6 +100,13 @@ typedef struct Component_t_MenuList
     
 }Component_t_MenuList;
 
+typedef struct UiC_Input_t
+{
+    bool inputUp     : 1;
+    bool inputDown   : 1;
+    bool inputSelect : 1;
+}UiC_Input_t;
+
 
 typedef struct Page_t
 { 
@@ -106,11 +115,6 @@ typedef struct Page_t
     Component_t* componentList[MAX_COMPONENTS_PER_VIEW]; 
     uint8_t      nComponents;
 }Page_t;
-
-typedef struct Page_t_Inputs
-{
-
-}Page_t_Inputs;
 
 
 // 17/06/2024 - Changed 'currentPage' from uint8 index to an actual pointer
@@ -125,8 +129,6 @@ typedef struct UiCore_t
     // uint8_t currentPage;
     Page_t* currentPage; 
     uint8_t nPages;
-
-    Page_t_Inputs inputs;
 }UiCore_t;
 
 
@@ -140,7 +142,17 @@ void          v_UiC_changePage(Page_t* nextPage);
 Page_t*       UiC_getActivePage();
 
 /** Component handling **/
-UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, ComponentType eComponentType, Component_t_Data baseData);
+
+
+/// @brief Generic Ui Core function to add components to a certain page. This takes care of initializing a component of type <eComponentType>
+///        with all their base parameters as well potential optional parameters, passed through the <baseData> struct.
+///        Some components have mandatory extra parameters, others have optional extra parameters while others have no extra parameters at all.
+/// @param pComponent       The component to be initialized and added to page <pPage>
+/// @param pPage            The page to which component <pComponent> will be added
+/// @param eComponentType   The type of the component.
+/// @param baseData         
+/// @return 
+UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, ComponentType eComponentType, Component_t_Data componentParameters);
 void          v_UiC_updateComponent(Component_t* pComponent, void* pValue);
 
 
