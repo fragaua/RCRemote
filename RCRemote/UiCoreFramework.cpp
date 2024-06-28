@@ -307,7 +307,7 @@ static void updateMenuListComponent(Component_t_MenuList* pMenu, UiC_Input_t* pI
   }
   else if(pInputs->inputUp)
   {
-    pMenu->currentlySelectedIdx = (pMenu->currentlySelectedIdx - 1) % pMenu->nItems; // TODO: Fix this not going to the right option
+    pMenu->currentlySelectedIdx = (pMenu->currentlySelectedIdx == 0) ? pMenu->nItems-1 : pMenu->currentlySelectedIdx -1; 
   }
   else if(pInputs->inputSelect)
   {
