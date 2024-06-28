@@ -17,20 +17,26 @@
 /* Page/View declaration */
 Page_t monitoringPage;  // Default page where we can see the the analog monitors etc.
 Page_t optionsPage;     // Options menu. Contains a group of options and allows us to navigate to other pages such as configuration
-Page_t configurationPage; // Where we would configure trimming, channel inversion or endpoint adjustment.
+Page_t configurationPage; // Where we configure the current channel
 
 
 /* Component Declaration */
+
+#define N_OPTIONS 3u
+
 Component_t_ProgressBar progressBars[N_CHANNELS];
-Component_t_Text        analogId[N_CHANNELS];
-Component_t_Text        communicationState;
+Component_t_MenuItem    analogId[N_CHANNELS];
+Component_t_MenuItem    communicationState;
 
 // DEBUG
 Component_t_Text        testButton1;
 Component_t_Text        testButton2;
 
 Component_t_MenuList    optionsMenu;
-Component_t_MenuItem    options[3];
+Component_t_MenuItem    options[N_OPTIONS];
+
+Component_t_MenuList    channelChooseMenu;
+
 
 Component_t_Data componentInputData;
 
@@ -50,7 +56,8 @@ static void v_UiM_updateProviderPorts(void);
 
 /**  Project Specific functions  **/ // Todo: eventually we can have a separate project specific file.
 static void buildCommunicationString(bool connectionDropped, unsigned long txTime, char* commStateString);
-static void switchTrimmingPage(void);
+static void switchToConfigurationOptionsPage(void* selectedChannelIdx);
+static void switchToChannelSelectPage(void);
 
 
 void v_UiM_init(UiM_t_rPorts* pReceiverPorts, UiM_t_pPorts* pProviderPorts)
@@ -68,35 +75,41 @@ void v_UiM_init(UiM_t_rPorts* pReceiverPorts, UiM_t_pPorts* pProviderPorts)
     // Initialize all pages
     e_UiC_newPage(&monitoringPage);
     e_UiC_newPage(&optionsPage);
+    e_UiC_newPage(&configurationPage);
 
 
     // Initialize all components
-
+    e_UiC_addComponent((Component_t*)&channelChooseMenu,      &monitoringPage, UIC_COMPONENT_MENU_LIST, {0});
+    
     for(i = 0; i < N_CHANNELS; i++)
     {
         uint8_t y = (i*7) + 15; // TODO: Improve this
-        e_UiC_addComponent((Component_t*)&(analogId[i]),     &monitoringPage, UIC_COMPONENT_TEXT,        {1,  y+5, pReceiverPorts->remoteChannelInputs[i].c_Name});
-        e_UiC_addComponent((Component_t*)&(progressBars[i]), &monitoringPage, UIC_COMPONENT_PROGRESSBAR, {18, y, NULL});
+        e_UiC_addComponent((Component_t*)&(analogId[i]),       &monitoringPage, UIC_COMPONENT_MENU_ITEM,  {3,  y+5, pReceiverPorts->remoteChannelInputs[i].c_Name, (void*) switchToConfigurationOptionsPage}); // TODO call back needs to be caleld with the parameter to which channel to update.
+        e_UiC_addComponent((Component_t*)&(progressBars[i]),   &monitoringPage, UIC_COMPONENT_PROGRESSBAR, {18, y, NULL});
+
     }
+    
+    e_UiC_addComponent((Component_t*)&optionsMenu,             &optionsPage,    UIC_COMPONENT_MENU_LIST, {0});
+    e_UiC_addComponent((Component_t*)&(options[0]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 20, "Trimming", });
+    e_UiC_addComponent((Component_t*)&(options[1]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 27, "EndPointAdj"});
+    e_UiC_addComponent((Component_t*)&(options[2]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 34, "Invert"});
 
-    e_UiC_addComponent((Component_t*)&optionsMenu,           &optionsPage,    UIC_COMPONENT_MENU_LIST, {0});
-    e_UiC_addComponent((Component_t*)&(options[0]),          &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 20, "Trimming", (void*) switchTrimmingPage});
-    e_UiC_addComponent((Component_t*)&(options[1]),          &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 27, "EndPointAdj"});
-    e_UiC_addComponent((Component_t*)&(options[2]),          &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 34, "Invert"});
-
+    
 
     // DEBUG    
-    e_UiC_addComponent((Component_t*) &(testButton1),        &optionsPage,     UIC_COMPONENT_TEXT, {35, 5, ""});
-    e_UiC_addComponent((Component_t*) &(testButton2),        &monitoringPage,  UIC_COMPONENT_TEXT, {35, 5, ""});
-    e_UiC_addComponent((Component_t*) &(communicationState), &monitoringPage,  UIC_COMPONENT_TEXT,  {1, 5, "NoComm"});
+    e_UiC_addComponent((Component_t*) &(testButton1),          &optionsPage,     UIC_COMPONENT_TEXT, {35, 5, ""});
+    e_UiC_addComponent((Component_t*) &(testButton2),          &monitoringPage,  UIC_COMPONENT_TEXT, {35, 5, ""});
+    e_UiC_addComponent((Component_t*) &(communicationState),   &monitoringPage,  UIC_COMPONENT_TEXT,  {1, 5, "NoComm"});
 
+
+    Serial.println(UiC_getErrorState());
 
 }
 
 
 void v_UiM_update()
 {
-    char commStateStr[MAX_NR_CHARS] = "NoComm";
+    char commStateStr[MAX_NR_CHARS] = "NCom";
     char tb1[7];
     uint8_t i;
 
@@ -109,10 +122,10 @@ void v_UiM_update()
     // Process input buttons
     v_UiM_processUIManagementInputs(UiContextManager.rPorts->uiManagementInputs);
 
-    // Update pages (Temporary? How do I want to move to the options page) 
-    if(UiContextManager.rPorts->uiManagementInputs->holdButtonSelect)
+    // Update pages (Temporary: for now, on every page, if I hold the Left button it goes back to monitoring
+    if(UiContextManager.rPorts->uiManagementInputs->holdButtonLeft)
     {
-        v_UiC_changePage(&optionsPage);
+        v_UiC_changePage(&monitoringPage);
     }
 
     
@@ -127,6 +140,7 @@ void v_UiM_update()
                         UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonRight, 
                         UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonSelect}; 
     v_UiC_updateComponent((Component_t*) &optionsMenu, (void*) &temp);
+    v_UiC_updateComponent((Component_t*) &channelChooseMenu, (void*) &temp);
     v_UiC_updateComponent((Component_t*) &(communicationState), (void*) commStateStr);
     v_UiC_updateComponent((Component_t*) &(testButton1),        (void*) tb1);
     v_UiC_updateComponent((Component_t*) &(testButton2),        (void*) tb1);
@@ -200,7 +214,17 @@ static void buildCommunicationString(bool connectionDropped, unsigned long txTim
 }
 
 
-static void switchTrimmingPage(void)
+static void switchToConfigurationOptionsPage(void* selectedChannelIdx)
 {
-    v_UiC_changePage(&monitoringPage);
+    Serial.print("Called from: ");
+    Serial.println((uint8_t) selectedChannelIdx);
+    v_UiC_changePage(&optionsPage);
+}
+
+static void switchToConfigurationPage(void* selectedConfigurationIdx)
+{
+    v_UiC_changePage(&configurationPage);
+    // TODO:
+    // Set the configuration channel text to the one we selected
+    // Set the title to the configuration option we selected
 }

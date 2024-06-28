@@ -22,8 +22,8 @@ typedef U8G2_SSD1306_128X64_NONAME_1_HW_I2C U8G2_SSD1306;
 // Tweaking these values will allow for more or less memory usage by the overall Ui Core and Management systems
 #define MAX_COMPONENTS_PER_VIEW 18u
 #define MAX_NUMBER_PAGES        6u
-#define MAX_NR_CHARS            15u
-#define MAX_NR_MENU_ITEMS       5u 
+#define MAX_NR_CHARS            5u
+#define MAX_NR_MENU_ITEMS       10u 
 
 
 enum UiC_ErrorType
@@ -51,7 +51,7 @@ typedef struct Component_t_Position
 
 // This structure contains all possible data needed to create, initialize and
 // add a new component to a page.
-typedef struct Component_t_Data
+typedef struct Component_t_Data // TODO: Change this name
 {
     uint8_t x;
     uint8_t y;
@@ -129,6 +129,8 @@ typedef struct UiCore_t
     // uint8_t currentPage;
     Page_t* currentPage; 
     uint8_t nPages;
+
+    UiC_ErrorType internalErrorState;
 }UiCore_t;
 
 
@@ -155,5 +157,8 @@ Page_t*       UiC_getActivePage();
 UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, ComponentType eComponentType, Component_t_Data componentParameters);
 void          v_UiC_updateComponent(Component_t* pComponent, void* pValue);
 
+
+/** Error Handling **/
+UiC_ErrorType UiC_getErrorState();
 
 #endif;

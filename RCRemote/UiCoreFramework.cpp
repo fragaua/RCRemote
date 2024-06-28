@@ -27,6 +27,7 @@ static void drawMenuListComponent(Component_t_MenuList* pMenu);
 static void updateMenuListComponent(Component_t_MenuList* pMenu, UiC_Input_t* inputs); 
 
 /** Internal UiC functions **/
+static void v_UiC_setInternalErrorState(UiC_ErrorType currentError);
 static UiC_ErrorType e_UiC_addComponentToPage(Component_t* pComponent, Page_t* pPage);
 
 /// @brief Adds a menu item to the previously created MenuList.
@@ -51,8 +52,10 @@ void v_UiC_init()
 
   uiCoreContext.nPages = 0;
   uiCoreContext.currentPage = 0;
+  uiCoreContext.internalErrorState = UiC_OK;
   
   // Initialize U8G2 Display Handle
+  // TODO: Improve for generic and multiple displays
   DisplayHandle.begin();
   DisplayHandle.clearDisplay();
   DisplayHandle.setFont(u8g2_font_smolfont_tf);
@@ -170,6 +173,17 @@ static bool b_UiC_isComponentInPage(Component_t* pComponent, Page_t* pPage)
 
 }
 
+/** Error handling  **/
+static void v_UiC_setInternalErrorState(UiC_ErrorType currentError)
+{
+  uiCoreContext.internalErrorState = currentError;
+}
+
+UiC_ErrorType UiC_getErrorState()
+{
+  return uiCoreContext.internalErrorState;
+}
+
 
 /** Component handling **/
 
@@ -177,7 +191,7 @@ static bool b_UiC_isComponentInPage(Component_t* pComponent, Page_t* pPage)
 UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, ComponentType eComponentType, Component_t_Data componentParameters)
 { 
   //TODO: Create a static init function for each component, to make this function cleaner
-  UiC_ErrorType error;
+  UiC_ErrorType error = UiC_OK;
   // Accessing pos and type directly is safe? Normally, in terms of memory, the "base" from the more complex type we receive here
   // would be in the same place as pos and type from a generic component.
 
@@ -218,7 +232,10 @@ UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, Compone
     break;
   }
 
-  return (UiC_ErrorType)(e_UiC_addComponentToPage((Component_t*) pComponent, pPage) | error);
+  error = (UiC_ErrorType) (error | e_UiC_addComponentToPage((Component_t*) pComponent, pPage));
+  v_UiC_setInternalErrorState(error);
+
+  return error;
 }
 
 
@@ -268,7 +285,7 @@ static void drawMenuItemComponent(Component_t_MenuItem* pItem)
   DisplayHandle.drawStr(pItem->base.pos.x, pItem->base.pos.y, pItem->itemText);
   if(pItem->isSelected)
   {
-    DisplayHandle.drawCircle(pItem->base.pos.x - 2, pItem->base.pos.y - 2, 1);
+    DisplayHandle.drawCircle(pItem->base.pos.x - 3, pItem->base.pos.y - 2, 1);
   }
 
 }
@@ -315,7 +332,7 @@ static void updateMenuListComponent(Component_t_MenuList* pMenu, UiC_Input_t* pI
     
     if(pMenu->menuItems[pMenu->currentlySelectedIdx]->callback != NULL)
     {
-      pMenu->menuItems[pMenu->currentlySelectedIdx]->callback(NULL);   // Call the "callback" function to execute an action
+      pMenu->menuItems[pMenu->currentlySelectedIdx]->callback((void*) pMenu->currentlySelectedIdx);   // Call the "callback" function to execute an action
     }
 
   }
