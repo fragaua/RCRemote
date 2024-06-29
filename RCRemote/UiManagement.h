@@ -65,8 +65,23 @@ typedef struct UiM_t_rPorts
 // Contains all necessary data to inform the UiManagement caller of changes. This is project specific information
 typedef struct UiM_t_pPorts
 {
-    bool analogSendAllowed;
+    bool analogSendAllowed : 1;
+
+    // For this particular project we only need a 'configuration updated' flag, since the configuration pointer is passed through the rports
+    // This is activated once after a config update and then replaced with 0 again.
+    bool configurationUpdated : 1; 
+
 }UiM_t_pPorts;
+
+
+// Global variables that need sharing across project specific functions. This is project specific information.
+typedef struct UiM_t_Globals
+{   
+
+    uint8_t channelMenuSelectedOptionIdx       : 3;
+    uint8_t configurationMenuSelectedOptionIdx : 3;
+
+}UiM_t_Globals;
 
 
 // Contains all the inputs necessary to update the internal components.
@@ -81,6 +96,13 @@ typedef struct UiM_t_contextManager
     // Will provide configuration stuff. For this particular scenario, the configuration
     // is also available through the RemoteChannelInput_t in the receiver ports.
     UiM_t_pPorts* pPorts;
+
+
+    /**** Globals ******/
+    // Management variables used to control the flow in a project specific UI.
+    // For instance, could be used to save the output state of a callback for a selected button
+    // in order to use later
+    UiM_t_Globals globals;
 
 }UiM_t_contextManager;
 

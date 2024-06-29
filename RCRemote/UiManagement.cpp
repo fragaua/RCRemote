@@ -41,6 +41,9 @@ Component_t_MenuList    channelChooseMenu;
 
 Component_t_Data componentInputData;
 
+Component_t_Text configurationMainTitle;
+Component_t_Text configurationSubTitle;       
+
 
 UiC_ErrorType error;
 
@@ -60,6 +63,9 @@ static void buildCommunicationString(bool connectionDropped, unsigned long txTim
 static void switchToConfigurationOptionsPage(void* selectedChannelIdx);
 static void switchToConfigurationPage(void* selectedConfigurationIdx);
 static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateNextValueButton);
+static void updateRemoteConfigurationTrimming(uint8_t channelIdx, uint16_t newTrimmingValue);
+static void updateRemoteConfigurationEndpoint(uint8_t channelIdx, uint16_t newEndpointLow, uint16_t newEndpointUpper);
+static void updateRemoteConfigurationInvert(uint8_t channelIdx);
 
 
 void v_UiM_init(UiM_t_rPorts* pReceiverPorts, UiM_t_pPorts* pProviderPorts)
@@ -93,8 +99,10 @@ void v_UiM_init(UiM_t_rPorts* pReceiverPorts, UiM_t_pPorts* pProviderPorts)
     
     e_UiC_addComponent((Component_t*)&optionsMenu,             &optionsPage,    UIC_COMPONENT_MENU_LIST, {0});
     e_UiC_addComponent((Component_t*)&(options[0]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 20, "Trimming", (void*) switchToConfigurationPage});
-    e_UiC_addComponent((Component_t*)&(options[1]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 27, "EndPont",  (void*) switchToConfigurationPage});
+    e_UiC_addComponent((Component_t*)&(options[1]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 27, "EndPoint",  (void*) switchToConfigurationPage});
     e_UiC_addComponent((Component_t*)&(options[2]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 34, "Invert",   (void*) switchToConfigurationPage});
+    e_UiC_addComponent((Component_t*)&(configurationMainTitle),&configurationPage,  UIC_COMPONENT_TEXT, {45, 5, ""});
+    e_UiC_addComponent((Component_t*)&(configurationSubTitle), &configurationPage,  UIC_COMPONENT_TEXT, {50, 15, ""});
 
     
 
@@ -142,9 +150,15 @@ void v_UiM_update()
     // TODO: remove this temp
     UiC_Input_t temp = {UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonLeft, 
                         UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonRight, 
-                        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonSelect}; 
+                        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonSelect};
+    // TODO: remove this temp2
+    UiC_Input_t temp2 = {
+        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonLeft, 
+        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonRight, 
+        UiContextManager.rPorts->uiManagementInputs->holdButtonSelect
+    };
     v_UiC_updateComponent((Component_t*) &optionsMenu, (void*) &temp);
-    v_UiC_updateComponent((Component_t*) &channelChooseMenu, (void*) &temp);
+    v_UiC_updateComponent((Component_t*) &channelChooseMenu, (void*) &temp2);
     v_UiC_updateComponent((Component_t*) &(communicationState), (void*) commStateStr);
     v_UiC_updateComponent((Component_t*) &(testButton1),        (void*) tb1);
     v_UiC_updateComponent((Component_t*) &(testButton2),        (void*) tb1);
@@ -230,28 +244,62 @@ static void buildCommunicationString(bool connectionDropped, unsigned long txTim
 static void switchToConfigurationOptionsPage(void* selectedChannelIdx)
 {
     v_UiC_changePage(&optionsPage);
+    UiContextManager.globals.channelMenuSelectedOptionIdx = (uint8_t) selectedChannelIdx;
 }
 
 static void switchToConfigurationPage(void* selectedConfigurationIdx)
 {
-    v_UiC_changePage(&configurationPage);
-    // TODO:
-    // Set the configuration channel text to the one we selected
-    // Set the title to the configuration option we selected
+    // If the selected option is invert, no need to go to the adjustment/configuration page. Simply
+    // call the configuration update functions and go to the main page.
+    if((uint8_t) selectedConfigurationIdx == 2) // TODO: replace with macro instead of magic 0
+    {
+        Serial.println("Inverted");
+        updateRemoteConfigurationInvert(UiContextManager.globals.channelMenuSelectedOptionIdx);
+        v_UiC_changePage(&monitoringPage);
+    }
+    else
+    {
+        v_UiC_changePage(&configurationPage);
+        UiContextManager.globals.configurationMenuSelectedOptionIdx = (uint8_t) selectedConfigurationIdx;
+
+        char* mainTitle = options[(uint8_t) selectedConfigurationIdx].itemText;
+        v_UiC_updateComponent((Component_t*)&(configurationMainTitle), (void*) mainTitle);
+
+        char* subTitle = analogId[UiContextManager.globals.channelMenuSelectedOptionIdx].itemText;
+        v_UiC_updateComponent((Component_t*)&(configurationSubTitle), (void*) subTitle);
+    }
+    
+
 }
 
 
 static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateNextValueButton)
 {
+    // TODO: have one or two values depending on the selected configuration.
     uint32_t updateValue;
-    static uint16_t lastValueBeforeUpdating;
+    static uint16_t lastValueBeforeUpdating = (*adjustmentWheel);
     static bool updateNextValue = false;
+    bool trimmingSelected = UiContextManager.globals.configurationMenuSelectedOptionIdx == 0; // TODO: Replace with macro instead of magic 0
     if(UiC_getActivePage() == &configurationPage)
     {
         if(!updateNextValue && updateNextValueButton) // If select button was hit and we are currently on the first value, toggle the update variable
         {
-            updateNextValue = !updateNextValue;
-            lastValueBeforeUpdating = (*adjustmentWheel); // Make sure to save the configurated value before configuring the next one.
+            if(trimmingSelected) // In case trimming is selected 
+            {
+                updateRemoteConfigurationTrimming(UiContextManager.globals.channelMenuSelectedOptionIdx, *(adjustmentWheel));
+                v_UiC_changePage(&monitoringPage);
+            }
+            else // Otherwise we are in 'endpoint adjustment' and in that case, proceed to adjust the next value.
+            {
+                updateNextValue = !updateNextValue;
+                lastValueBeforeUpdating = (*adjustmentWheel); // Make sure to save the configurated value before configuring the next one.
+            }
+
+        }
+        else if(updateNextValue && updateNextValueButton)
+        {
+            updateRemoteConfigurationEndpoint(UiContextManager.globals.channelMenuSelectedOptionIdx, lastValueBeforeUpdating, (*adjustmentWheel));
+            v_UiC_changePage(&monitoringPage);
         }
 
         updateValue = updateNextValue ? ((((uint32_t)*adjustmentWheel) << 16) | ((uint32_t)lastValueBeforeUpdating & 0xFFFF)) : (uint32_t)(*adjustmentWheel); // TODO: complex expression, wrap some macros for bit management here
@@ -262,4 +310,26 @@ static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateN
         updateNextValue = false;
     }
 
+}
+
+
+static void updateRemoteConfigurationTrimming(uint8_t channelIdx, uint16_t newTrimmingValue)
+{
+    // TODO: Make sure configurations are valid, otherwise display a msg and restart process (needed here?)
+    UiContextManager.rPorts->remoteChannelInputs[channelIdx].u8_Trim = (uint8_t) newTrimmingValue;
+    UiContextManager.pPorts->configurationUpdated = true;
+}
+
+static void updateRemoteConfigurationEndpoint(uint8_t channelIdx, uint16_t newEndpointLow, uint16_t newEndpointUpper)
+{
+    // TODO: Make sure configurations are valid, otherwise display a msg and restart process (endpoint up cant be lower than endpoint low, for example)
+    UiContextManager.rPorts->remoteChannelInputs[channelIdx].u8_MaxValueOffset = (uint8_t) newEndpointUpper;
+    UiContextManager.rPorts->remoteChannelInputs[channelIdx].u8_MinValueOffset = (uint8_t) newEndpointLow;
+    UiContextManager.pPorts->configurationUpdated = true;
+}
+
+static void updateRemoteConfigurationInvert(uint8_t channelIdx)
+{
+    UiContextManager.rPorts->remoteChannelInputs[channelIdx].b_InvertInput = !UiContextManager.rPorts->remoteChannelInputs[channelIdx].b_InvertInput; 
+    UiContextManager.pPorts->configurationUpdated = true;
 }

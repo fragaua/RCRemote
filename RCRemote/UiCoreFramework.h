@@ -22,8 +22,8 @@ typedef U8G2_SSD1306_128X64_NONAME_1_HW_I2C U8G2_SSD1306;
 // Tweaking these values will allow for more or less memory usage by the overall Ui Core and Management systems
 #define MAX_COMPONENTS_PER_VIEW 18u
 #define MAX_NUMBER_PAGES        6u
-#define MAX_NR_CHARS            5u
-#define MAX_NR_MENU_ITEMS       10u 
+#define MAX_NR_CHARS            7u
+#define MAX_NR_MENU_ITEMS       8u 
 
 
 enum UiC_ErrorType
@@ -83,8 +83,13 @@ typedef struct Component_t_AnalogMonitor
 }Component_t_AnalogMonitor;
 
 
+// Updating the values on this component:
 // Placing the adjuster variable on the upper or lower 16bits of the 32bit variable will 
-// make it update a different value
+// make it update a different value. This is so we can have a single component for both Trimming and EndPoint Adjustment
+// Note: This component is actually sort of project specific. While UiC is generic, it also
+// provides the flexibility to create any components we want, updated in any ways we want.
+// In insight, for this particular project I could've very well created two different components
+// where we had double adjustment in one and single adjustment in the other
 typedef struct Component_t_AnalogAdjustment
 {
     Component_t base;

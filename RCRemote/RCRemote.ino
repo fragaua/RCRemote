@@ -248,6 +248,7 @@ void loop()
   v_computeButtonVoltageDividers(&uiInputs);
   uiInputs.scrollWheel = RemoteInputs[POT_RIGHT_CHANNEL_IDX].u16_Value; // Aditionally, let's map the scroll wheel here, for now
   v_UiM_update();
+  // TODO: use the response data to save configurations to eeprom. Later load configurations from eeprom at startup.
 
   // v_updateOptionButtons(&display, ViewButtons, InternalRemoteInputs);
   // v_drawOptionButtons(&display, ViewButtons);

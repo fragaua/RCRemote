@@ -295,7 +295,8 @@ static void drawAnalogAdjustmentComponent(Component_t_AnalogAdjustment* pAnalogA
 
 static void updateAnalogAdjustmentComponent(Component_t_AnalogAdjustment* pAnalogAdjust, uint32_t* values)
 {
-  pAnalogAdjust->value1 = (uint16_t)(*values & 0xFFFF); // TODO, don't delete contents of the other 16bits  
+  Serial.println(*values);
+  pAnalogAdjust->value1 = (uint16_t)(*values & 0xFFFF);
   pAnalogAdjust->value2 = (uint16_t)(*values >> 16) & 0xFFFF;
 }
 
