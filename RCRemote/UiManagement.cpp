@@ -24,7 +24,8 @@ Page_t configurationPage; // Where we configure the current channel
 
 #define N_OPTIONS 3u
 
-Component_t_ProgressBar progressBars[N_CHANNELS];
+Component_t_AnalogMonitor progressBars[N_CHANNELS];
+Component_t_AnalogAdjustment adjustmentBar;
 Component_t_MenuItem    analogId[N_CHANNELS];
 Component_t_MenuItem    communicationState;
 
@@ -57,7 +58,8 @@ static void v_UiM_updateProviderPorts(void);
 /**  Project Specific functions  **/ // Todo: eventually we can have a separate project specific file.
 static void buildCommunicationString(bool connectionDropped, unsigned long txTime, char* commStateString);
 static void switchToConfigurationOptionsPage(void* selectedChannelIdx);
-static void switchToChannelSelectPage(void);
+static void switchToConfigurationPage(void* selectedConfigurationIdx);
+static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateNextValueButton);
 
 
 void v_UiM_init(UiM_t_rPorts* pReceiverPorts, UiM_t_pPorts* pProviderPorts)
@@ -85,14 +87,14 @@ void v_UiM_init(UiM_t_rPorts* pReceiverPorts, UiM_t_pPorts* pProviderPorts)
     {
         uint8_t y = (i*7) + 15; // TODO: Improve this
         e_UiC_addComponent((Component_t*)&(analogId[i]),       &monitoringPage, UIC_COMPONENT_MENU_ITEM,  {3,  y+5, pReceiverPorts->remoteChannelInputs[i].c_Name, (void*) switchToConfigurationOptionsPage}); // TODO call back needs to be caleld with the parameter to which channel to update.
-        e_UiC_addComponent((Component_t*)&(progressBars[i]),   &monitoringPage, UIC_COMPONENT_PROGRESSBAR, {18, y, NULL});
+        e_UiC_addComponent((Component_t*)&(progressBars[i]),   &monitoringPage, UIC_COMPONENT_ANALOGMONITOR, {18, y, NULL});
 
     }
     
     e_UiC_addComponent((Component_t*)&optionsMenu,             &optionsPage,    UIC_COMPONENT_MENU_LIST, {0});
-    e_UiC_addComponent((Component_t*)&(options[0]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 20, "Trimming", });
-    e_UiC_addComponent((Component_t*)&(options[1]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 27, "EndPointAdj"});
-    e_UiC_addComponent((Component_t*)&(options[2]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 34, "Invert"});
+    e_UiC_addComponent((Component_t*)&(options[0]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 20, "Trimming", (void*) switchToConfigurationPage});
+    e_UiC_addComponent((Component_t*)&(options[1]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 27, "EndPont",  (void*) switchToConfigurationPage});
+    e_UiC_addComponent((Component_t*)&(options[2]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 34, "Invert",   (void*) switchToConfigurationPage});
 
     
 
@@ -100,6 +102,8 @@ void v_UiM_init(UiM_t_rPorts* pReceiverPorts, UiM_t_pPorts* pProviderPorts)
     e_UiC_addComponent((Component_t*) &(testButton1),          &optionsPage,     UIC_COMPONENT_TEXT, {35, 5, ""});
     e_UiC_addComponent((Component_t*) &(testButton2),          &monitoringPage,  UIC_COMPONENT_TEXT, {35, 5, ""});
     e_UiC_addComponent((Component_t*) &(communicationState),   &monitoringPage,  UIC_COMPONENT_TEXT,  {1, 5, "NoComm"});
+    
+    e_UiC_addComponent((Component_t*) &(adjustmentBar),        &configurationPage,  UIC_COMPONENT_ANALOGADJUSTMENT,  {2, 30});
 
 
     Serial.println(UiC_getErrorState());
@@ -144,6 +148,9 @@ void v_UiM_update()
     v_UiC_updateComponent((Component_t*) &(communicationState), (void*) commStateStr);
     v_UiC_updateComponent((Component_t*) &(testButton1),        (void*) tb1);
     v_UiC_updateComponent((Component_t*) &(testButton2),        (void*) tb1);
+    
+    updateAdjustmentMonitors(&(UiContextManager.rPorts->uiManagementInputs->scrollWheel), UiContextManager.rPorts->uiManagementInputs->holdButtonSelect);
+
 
 
     v_UiM_updateProviderPorts();
@@ -158,10 +165,16 @@ static void v_UiM_updateProviderPorts(void)
 {
     // For now, updates the "analogSendAllowed" based on the current page.
     UiContextManager.pPorts->analogSendAllowed = false;
-    if(UiC_getActivePage() == &monitoringPage)
+    Page_t* activePage = UiC_getActivePage();
+
+    if(activePage == &monitoringPage)
     {
         // The analog send is only allowed on the monitoring page.
         UiContextManager.pPorts->analogSendAllowed = true;
+    }
+    else if(activePage == &configurationPage)
+    {
+        // If we leave this page by clicking "go" or smthng, save the configuration (in this case it's provided through the rports)
     }
 }
 
@@ -216,8 +229,6 @@ static void buildCommunicationString(bool connectionDropped, unsigned long txTim
 
 static void switchToConfigurationOptionsPage(void* selectedChannelIdx)
 {
-    Serial.print("Called from: ");
-    Serial.println((uint8_t) selectedChannelIdx);
     v_UiC_changePage(&optionsPage);
 }
 
@@ -227,4 +238,28 @@ static void switchToConfigurationPage(void* selectedConfigurationIdx)
     // TODO:
     // Set the configuration channel text to the one we selected
     // Set the title to the configuration option we selected
+}
+
+
+static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateNextValueButton)
+{
+    uint32_t updateValue;
+    static uint16_t lastValueBeforeUpdating;
+    static bool updateNextValue = false;
+    if(UiC_getActivePage() == &configurationPage)
+    {
+        if(!updateNextValue && updateNextValueButton) // If select button was hit and we are currently on the first value, toggle the update variable
+        {
+            updateNextValue = !updateNextValue;
+            lastValueBeforeUpdating = (*adjustmentWheel); // Make sure to save the configurated value before configuring the next one.
+        }
+
+        updateValue = updateNextValue ? ((((uint32_t)*adjustmentWheel) << 16) | ((uint32_t)lastValueBeforeUpdating & 0xFFFF)) : (uint32_t)(*adjustmentWheel); // TODO: complex expression, wrap some macros for bit management here
+        v_UiC_updateComponent((Component_t*) &(adjustmentBar), (void*) (&updateValue)); // TODO: dont use globals here
+    }
+    else
+    {
+        updateNextValue = false;
+    }
+
 }

@@ -36,7 +36,8 @@ enum UiC_ErrorType
 enum ComponentType
 {
     UIC_COMPONENT_TEXT,
-    UIC_COMPONENT_PROGRESSBAR,
+    UIC_COMPONENT_ANALOGMONITOR,
+    UIC_COMPONENT_ANALOGADJUSTMENT,
     UIC_COMPONENT_MENU_ITEM,
     UIC_COMPONENT_MENU_LIST,
     N_COMPONENT_TYPES // Last enum is essentially the total number of component types.
@@ -75,11 +76,21 @@ typedef struct Component_t_Text
     char        value[MAX_NR_CHARS];
 }Component_t_Text;
 
-typedef struct Component_t_ProgressBar
+typedef struct Component_t_AnalogMonitor
 {
     Component_t base;
     uint16_t    value;
-}Component_t_ProgressBar;
+}Component_t_AnalogMonitor;
+
+
+// Placing the adjuster variable on the upper or lower 16bits of the 32bit variable will 
+// make it update a different value
+typedef struct Component_t_AnalogAdjustment
+{
+    Component_t base;
+    uint16_t    value1;
+    uint16_t    value2;
+}Component_t_AnalogAdjustment; 
 
 typedef struct Component_t_MenuItem
 {

@@ -14,8 +14,11 @@
 
 
 /** Component specific draw and update functions **/
-static void drawProgressBarComponent(Component_t_ProgressBar* pProgressBar);
-static void updateProgressBarComponent(Component_t_ProgressBar* pProgressBar, uint16_t* value);
+static void drawAnalogMonitorComponent(Component_t_AnalogMonitor* pAnalogMonitor);
+static void updateAnalogMonitorComponent(Component_t_AnalogMonitor* pAnalogMonitor, uint16_t* value);
+
+static void drawAnalogAdjustmentComponent(Component_t_AnalogAdjustment* pAnalogAdjust);
+static void updateAnalogAdjustmentComponent(Component_t_AnalogAdjustment* pAnalogAdjust, uint32_t* values);
 
 static void drawTextComponent(Component_t_Text* pText);
 static void updateTextComponent(Component_t_Text* pText, char* value);
@@ -209,9 +212,14 @@ UiC_ErrorType e_UiC_addComponent(Component_t* pComponent, Page_t* pPage, Compone
       strncpy(((Component_t_Text*)pComponent)->value, componentParameters.stringData, sizeof((Component_t_Text*)pComponent)->value); 
     break;
 
-    case UIC_COMPONENT_PROGRESSBAR:
-      ((Component_t_ProgressBar*)pComponent)->base.draw   = (void(*) (Component_t*))        drawProgressBarComponent;
-      ((Component_t_ProgressBar*)pComponent)->base.update = (void(*) (Component_t*, void*)) updateProgressBarComponent;
+    case UIC_COMPONENT_ANALOGMONITOR:
+      ((Component_t_AnalogMonitor*)pComponent)->base.draw   = (void(*) (Component_t*))        drawAnalogMonitorComponent;
+      ((Component_t_AnalogMonitor*)pComponent)->base.update = (void(*) (Component_t*, void*)) updateAnalogMonitorComponent;
+    break;
+
+    case UIC_COMPONENT_ANALOGADJUSTMENT:
+      ((Component_t_AnalogAdjustment*)pComponent)->base.draw   = (void(*) (Component_t*))        drawAnalogAdjustmentComponent;
+      ((Component_t_AnalogAdjustment*)pComponent)->base.update = (void(*) (Component_t*, void*)) updateAnalogAdjustmentComponent;
     break;
 
     case UIC_COMPONENT_MENU_ITEM:
@@ -255,16 +263,40 @@ void v_UiC_updateComponent(Component_t* pComponent, void* pValue)
 
 
 // TODO: Implement the various component draw functions. At some point, these can be easily inserted into a "Module Specific" file.
-static void drawProgressBarComponent(Component_t_ProgressBar* pProgressBar)
+static void drawAnalogMonitorComponent(Component_t_AnalogMonitor* pAnalogMonitor)
 {
 
-  DisplayHandle.drawFrame(pProgressBar->base.pos.x, pProgressBar->base.pos.y, 108, 6);
-  DisplayHandle.drawBox(pProgressBar->base.pos.x, pProgressBar->base.pos.y, map(pProgressBar->value, 0, 1023, 108, 0), 6);
+  DisplayHandle.drawFrame(pAnalogMonitor->base.pos.x, pAnalogMonitor->base.pos.y, 108, 6);
+  DisplayHandle.drawBox(pAnalogMonitor->base.pos.x, pAnalogMonitor->base.pos.y, map(pAnalogMonitor->value, 0, 1023, 108, 0), 6); // TODO: the map function assumes that we always have values from 0-1023. that's not generic enough for me
 }
 
-static void updateProgressBarComponent(Component_t_ProgressBar* pProgressBar, uint16_t* value)
+static void updateAnalogMonitorComponent(Component_t_AnalogMonitor* pAnalogMonitor, uint16_t* value)
 {
-  pProgressBar->value = *value;
+  pAnalogMonitor->value = *value;
+}
+
+static void drawAnalogAdjustmentComponent(Component_t_AnalogAdjustment* pAnalogAdjust)
+{
+  uint16_t x1 = map(pAnalogAdjust->value1, 0, 1023, 115, 0);// TODO: the map function assumes that we always have values from 0-1023. that's not generic enough for me
+  uint16_t x2 = map(pAnalogAdjust->value2, 0, 1023, 115, 0);
+  DisplayHandle.drawFrame(pAnalogAdjust->base.pos.x, pAnalogAdjust->base.pos.y, 125, 13);
+
+  DisplayHandle.drawLine(x1, pAnalogAdjust->base.pos.y-3, x1, pAnalogAdjust->base.pos.y+16);
+  DisplayHandle.drawLine(x2, pAnalogAdjust->base.pos.y-3, x2, pAnalogAdjust->base.pos.y+16);
+
+  DisplayHandle.setCursor(x1, pAnalogAdjust->base.pos.y + 20);
+  DisplayHandle.print(pAnalogAdjust->value1);
+
+  DisplayHandle.setCursor(x2, pAnalogAdjust->base.pos.y - 7);
+  DisplayHandle.print(pAnalogAdjust->value2);
+  // DisplayHandle.drawLine(x2, 3, x2, 9);
+}
+
+
+static void updateAnalogAdjustmentComponent(Component_t_AnalogAdjustment* pAnalogAdjust, uint32_t* values)
+{
+  pAnalogAdjust->value1 = (uint16_t)(*values & 0xFFFF); // TODO, don't delete contents of the other 16bits  
+  pAnalogAdjust->value2 = (uint16_t)(*values >> 16) & 0xFFFF;
 }
 
 static void drawTextComponent(Component_t_Text* pText)
