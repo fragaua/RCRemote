@@ -172,7 +172,9 @@ void v_UiM_update()
     v_UiC_updateComponent((Component_t*) &(communicationState), (void*) commStateStr);
     v_UiC_updateComponent((Component_t*) &(testButton1),        (void*) tb1);
     v_UiC_updateComponent((Component_t*) &(testButton2),        (void*) tb1);
-    
+    v_UiC_updateComponent((Component_t*)&(configurationMainTitle), (void*) options[UiContextManager.globals.configurationMenuSelectedOptionIdx].itemText);
+
+    v_UiC_updateComponent((Component_t*)&(configurationSubTitle), (void*) analogId[UiContextManager.globals.channelMenuSelectedOptionIdx].itemText);
     updateAdjustmentMonitors(&(UiContextManager.rPorts->uiManagementInputs->scrollWheel), UiContextManager.rPorts->uiManagementInputs->holdButtonSelect);
 
 
@@ -304,12 +306,6 @@ static void switchToConfigurationPage(void* selectedConfigurationIdx)
     {
         v_UiM_requestPageChange(&configurationPage);
         UiContextManager.globals.configurationMenuSelectedOptionIdx = (uint8_t) selectedConfigurationIdx;
-
-        char* mainTitle = options[(uint8_t) selectedConfigurationIdx].itemText;
-        v_UiC_updateComponent((Component_t*)&(configurationMainTitle), (void*) mainTitle);
-
-        char* subTitle = analogId[UiContextManager.globals.channelMenuSelectedOptionIdx].itemText;
-        v_UiC_updateComponent((Component_t*)&(configurationSubTitle), (void*) subTitle);
     }
     
 
@@ -331,6 +327,7 @@ static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateN
             {
                 updateRemoteConfigurationTrimming(UiContextManager.globals.channelMenuSelectedOptionIdx, *(adjustmentWheel));
                 v_UiM_requestPageChange(&monitoringPage);
+             
             }
             else // Otherwise we are in 'endpoint adjustment' and in that case, proceed to adjust the next value.
             {
@@ -344,6 +341,7 @@ static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateN
             updateRemoteConfigurationEndpoint(UiContextManager.globals.channelMenuSelectedOptionIdx, lastValueBeforeUpdating, (*adjustmentWheel));
             v_UiM_requestPageChange(&monitoringPage);
         }
+        // TODO: Fix bug where in trimming, we get a line with value 0 because of this expression here.
         updateValue = updateNextValue ? ((((uint32_t)*adjustmentWheel) << 16) | ((uint32_t)lastValueBeforeUpdating & 0xFFFF)) : (uint32_t)(*adjustmentWheel); // TODO: complex expression, wrap some macros for bit management here
         v_UiC_updateComponent((Component_t*) &(adjustmentBar), (void*) (&updateValue)); // TODO: dont use globals here
     }
