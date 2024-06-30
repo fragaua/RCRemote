@@ -12,14 +12,14 @@
 // As of now, this configuration can be changed on the fly via the UI. 
 // TODO: Make sure the configuration can be saved in the EEPROM/Non Volatile memory.
 RemoteChannelInput_t RemoteInputs[N_CHANNELS] = 
-                                    // Pin,                     Val,  Trim,                Min,                Max,               Invert,  isAnalog,   Channel Name  
+                                    // Pin,                     Val,  Trim,                Min,                Max,               Invert,  isAnalog,  Channel Name  
                                    {{JOYSTICK_LEFT_AXIS_X_PIN,  0u,   ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,    "JLX"}, 
                                     {JOYSTICK_LEFT_AXIS_Y_PIN,  0u,   ANALOG_HALF_VALUE,   200u,               750u,              false,    true,    "JLY"}, 
                                     {JOYSTICK_RIGHT_AXIS_X_PIN, 0u,   ANALOG_HALF_VALUE,   200u,               750u,              true,     true,    "JRX"}, 
                                     {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u,   ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,    "JRY"}, 
                                     {POT_RIGHT_PIN,             0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,    "PR"},  
-                                    {SWITCH_SP_LEFT_PIN,        0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,     false,   "SWL"}, 
-                                    {SWITCH_SP_RIGHT_PIN,       0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,     false,   "SWR"}};
+                                    {SWITCH_SP_LEFT_PIN,        0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    false,   "SWL"}, 
+                                    {SWITCH_SP_RIGHT_PIN,       0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    false,   "SWR"}};
 
 RemoteCommunicationState_t RemoteCommunicationState = {false, 0l};
 UiM_t_Inputs  uiInputs;
@@ -146,8 +146,6 @@ void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, Respon
 /* Processes endpoint adjustment and overrides provided value if value is outside current configured endpoints */
 void v_processEndpointAdjustment(RemoteChannelInput_t* pInput)
 {
-  // TODO: Make sure configurations are possible since inverts and trimmings might affect how the endpoint needs to be adjusted.
-  // There are currently a few bugs.
   pInput->u16_Value = (pInput->u16_Value > pInput->u16_MaxValue) ? pInput->u16_MaxValue : pInput->u16_Value; 
   pInput->u16_Value = (pInput->u16_Value < pInput->u16_MinValue) ? pInput->u16_MinValue : pInput->u16_Value; 
 }
@@ -251,9 +249,4 @@ void loop()
   uiInputs.scrollWheel = RemoteInputs[POT_RIGHT_CHANNEL_IDX].u16_Value; // Aditionally, let's map the scroll wheel here, for now
   v_UiM_update();
   // TODO: use the response data to save configurations to eeprom. Later load configurations from eeprom at startup.
-
-  // v_updateOptionButtons(&display, ViewButtons, InternalRemoteInputs);
-  // v_drawOptionButtons(&display, ViewButtons);
-  // v_drawAnalogs(&display, RemoteInputs);
-  // v_printConnectionStatusOLED(&display, i32TxTime, b_ConnectionLost);
 }

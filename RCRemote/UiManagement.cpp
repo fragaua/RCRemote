@@ -44,7 +44,6 @@ Component_t_Data componentInputData;
 Component_t_Text configurationMainTitle;
 Component_t_Text configurationSubTitle;       
 
-
 UiC_ErrorType error;
 
 
@@ -153,22 +152,14 @@ void v_UiM_update()
         v_UiC_updateComponent((Component_t*) &(progressBars[i]), &(UiContextManager.rPorts->remoteChannelInputs[i].u16_Value));
     }
 
+    // TODO: Maybe menu items can received the same exact struct as the uiManagementInputs?
+    v_UiC_updateComponent((Component_t*) &optionsMenu,          &(UiC_Input_t){UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonLeft, 
+                                                                               UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonRight, 
+                                                                               UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonSelect});
 
-    // URGENT TODO: Button inputs are propagatted whenever we changed pages. We need to reset the inputs whenever they are 'used' by some component
-    // Maybe the input side of things should be rethinked since, while it works, it's not clear where it should be handled exactly. 
-
-    // TODO: remove this temp
-    UiC_Input_t temp = {UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonLeft, 
-                        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonRight, 
-                        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonSelect};
-    // TODO: remove this temp2
-    UiC_Input_t temp2 = {
-        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonLeft, 
-        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonRight, 
-        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonSelect
-    };
-    v_UiC_updateComponent((Component_t*) &optionsMenu, (void*) &temp);
-    v_UiC_updateComponent((Component_t*) &channelChooseMenu, (void*) &temp2);
+    v_UiC_updateComponent((Component_t*) &channelChooseMenu,    &(UiC_Input_t){UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonLeft, 
+                                                                               UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonRight, 
+                                                                               UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonSelect});
     v_UiC_updateComponent((Component_t*) &(communicationState), (void*) commStateStr);
     v_UiC_updateComponent((Component_t*) &(testButton1),        (void*) tb1);
     v_UiC_updateComponent((Component_t*) &(testButton2),        (void*) tb1);
@@ -308,41 +299,46 @@ static void switchToConfigurationPage(void* selectedConfigurationIdx)
         UiContextManager.globals.configurationMenuSelectedOptionIdx = (uint8_t) selectedConfigurationIdx;
     }
     
-
 }
 
 
 static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateNextValueButton)
 {
     // TODO: have one or two values depending on the selected configuration.
-    uint32_t updateValue;
+    uint32_t        updateValue;
     static uint16_t lastValueBeforeUpdating = (*adjustmentWheel);
-    static bool updateNextValue = false;
-    bool trimmingSelected = UiContextManager.globals.configurationMenuSelectedOptionIdx == 0; // TODO: Replace with macro instead of magic 0
+    static bool     updateNextValue         = false;
+    bool            trimmingSelected        = UiContextManager.globals.configurationMenuSelectedOptionIdx == 0; // TODO: Replace with macro instead of magic 0
+    bool            shouldContinue          = !updateNextValue && updateNextValueButton;  // Whether or not to continue through. Trimming page will end the edit and endpoint will select the next point to adjust. 
+    bool            adjustmentFinished      = updateNextValue && updateNextValueButton; // If we are already in next value and hold button is pressed, adjustment is finished.
     if(UiC_getActivePage() == &configurationPage)
     {
-        if(!updateNextValue && updateNextValueButton) // If select button was hit and we are currently on the first value, toggle the update variable
+        if(trimmingSelected)
         {
-            if(trimmingSelected) // In case trimming is selected 
+            if(shouldContinue) // If hold button is clicked on the trimming menu, simply update configuration and forward request to main page.
             {
                 updateRemoteConfigurationTrimming(UiContextManager.globals.channelMenuSelectedOptionIdx, *(adjustmentWheel));
                 v_UiM_requestPageChange(&monitoringPage);
-             
             }
-            else // Otherwise we are in 'endpoint adjustment' and in that case, proceed to adjust the next value.
+            
+            updateValue = ((((uint32_t)*adjustmentWheel) << 16) | ((uint32_t)*adjustmentWheel & 0xFFFF));
+        }
+        else // Otherwise, we must be in endpoint adjustment, since invert was taken care on the first page switch.
+        {
+            if(shouldContinue) // If hold button is clicked, go to next value adjustment and update the lastValue.
             {
                 updateNextValue = !updateNextValue;
                 lastValueBeforeUpdating = (*adjustmentWheel); // Make sure to save the configurated value before configuring the next one.
             }
+            else if(adjustmentFinished)
+            {
+                updateRemoteConfigurationEndpoint(UiContextManager.globals.channelMenuSelectedOptionIdx, lastValueBeforeUpdating, (*adjustmentWheel));
+                v_UiM_requestPageChange(&monitoringPage);
+            }
+            
+            updateValue = updateNextValue ? ((((uint32_t)*adjustmentWheel) << 16) | ((uint32_t)lastValueBeforeUpdating & 0xFFFF)) : (uint32_t)(*adjustmentWheel); // TODO: complex expression, wrap some macros for bit management here
+        }
 
-        }
-        else if(updateNextValue && updateNextValueButton)
-        {
-            updateRemoteConfigurationEndpoint(UiContextManager.globals.channelMenuSelectedOptionIdx, lastValueBeforeUpdating, (*adjustmentWheel));
-            v_UiM_requestPageChange(&monitoringPage);
-        }
-        // TODO: Fix bug where in trimming, we get a line with value 0 because of this expression here.
-        updateValue = updateNextValue ? ((((uint32_t)*adjustmentWheel) << 16) | ((uint32_t)lastValueBeforeUpdating & 0xFFFF)) : (uint32_t)(*adjustmentWheel); // TODO: complex expression, wrap some macros for bit management here
         v_UiC_updateComponent((Component_t*) &(adjustmentBar), (void*) (&updateValue)); // TODO: dont use globals here
     }
     else
