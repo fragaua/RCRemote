@@ -30,7 +30,7 @@
 #define BATTERY_INDICATION        OFF
 #define OLED_SCREEN               OFF
 #define OLED_SCREEN_LOW_MEM_MODE  ON
-#define RESPONSIVE_ANALOG_READ    ON
+#define RESPONSIVE_ANALOG_READ    ON // TODO: Make sure we can disable responsive read. At this point it isn't possible without breaking the software.
 
 
 /* 
@@ -117,13 +117,13 @@ const byte RF_Address[RF_ADDRESS_SIZE] = "1Node";
 
 typedef struct RemoteChannelInput_t
 {
-  uint8_t  u8_Pin;          // Current configured pin on the board.
-  uint16_t u16_Value;       // Current, actual converted value.
-  uint8_t  u8_Trim;         // Middle point adjustment. 
-  uint8_t  u8_MinValueOffset; // Minimum value Difference, for end-point adjustment. Not actual value in order to save memory and avoid u16 type. 
-  uint8_t  u8_MaxValueOffset; // Maximum value Difference, for end-point adjustment.
+  uint8_t  u8_Pin;              // Current configured pin on the board.
+  uint16_t u16_Value;          // Current, actual converted value.
+  uint16_t u16_Trim;           // Middle point absolute value. Offset is computed in the processTrimming function.
+  uint16_t u16_MinValue; // Absolute value for MinValue limit, for end point adjustment
+  uint16_t u16_MaxValue; // Absolute value for MaxValue limit, for end point adjustment
   bool     b_InvertInput;
-  bool     b_Analog;        // Analog input or not
+  bool     b_Analog;           // Analog input or not
   char     c_Name[MAX_NAME_CHAR+1]; // Channel name
 }RemoteChannelInput_t;
 

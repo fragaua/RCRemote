@@ -9,18 +9,17 @@
 
 
 // Declare and configure each input on the remote controller.
-// TODO: Later, the menus and inputs should be used to configure trimming and end-point adjustment on the fly.
-// They shouldn't be configured here like some of the inputs are.
-                                   
+// As of now, this configuration can be changed on the fly via the UI. 
+// TODO: Make sure the configuration can be saved in the EEPROM/Non Volatile memory.
 RemoteChannelInput_t RemoteInputs[N_CHANNELS] = 
-                                    // Pin,                     Val,  Trim, Min,  Max,   Invert,  isAnalog,   Channel Name  
-                                   {{JOYSTICK_LEFT_AXIS_X_PIN,  0u,   0u,   0u,   0u,      false,    true,    "JLX"}, 
-                                    {JOYSTICK_LEFT_AXIS_Y_PIN,  0u,   0u,   255u, 255u,    false,    true,    "JLY"}, 
-                                    {JOYSTICK_RIGHT_AXIS_X_PIN, 0u,   0u,   255u, 255u,    true,     true,    "JRX"}, 
-                                    {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u,   0u,   0u,   0u,      false,    true,    "JRY"}, 
-                                    {POT_RIGHT_PIN,             0u,   0u,   0u,   0u,      false,    true,    "PR"},  
-                                    {SWITCH_SP_LEFT_PIN,        0u,   0u,   0u,   0u,      true,     false,   "SWL"}, 
-                                    {SWITCH_SP_RIGHT_PIN,       0u,   0u,   0u,   0u,      true,     false,   "SWR"}};
+                                    // Pin,                     Val,  Trim,                Min,                Max,               Invert,  isAnalog,   Channel Name  
+                                   {{JOYSTICK_LEFT_AXIS_X_PIN,  0u,   ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,    "JLX"}, 
+                                    {JOYSTICK_LEFT_AXIS_Y_PIN,  0u,   ANALOG_HALF_VALUE,   200u,               750u,              false,    true,    "JLY"}, 
+                                    {JOYSTICK_RIGHT_AXIS_X_PIN, 0u,   ANALOG_HALF_VALUE,   200u,               750u,              true,     true,    "JRX"}, 
+                                    {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u,   ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,    "JRY"}, 
+                                    {POT_RIGHT_PIN,             0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,    "PR"},  
+                                    {SWITCH_SP_LEFT_PIN,        0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  true,     false,   "SWL"}, 
+                                    {SWITCH_SP_RIGHT_PIN,       0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  true,     false,   "SWR"}};
 
 RemoteCommunicationState_t RemoteCommunicationState = {false, 0l};
 UiM_t_Inputs  uiInputs;
@@ -146,18 +145,17 @@ void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, Respon
 /* Processes endpoint adjustment and overrides provided value if value is outside current configured endpoints */
 void v_processEndpointAdjustment(RemoteChannelInput_t* pInput)
 {
-  // TODO: Scratch the concept of "offset" now that we have more memory to spare, otherwise endpoint setting is limited
-  // to a max of 255.
-  uint16_t u16_MaxValue = (ANALOG_MAX_VALUE - pInput->u8_MaxValueOffset);
-  uint16_t u16_MinValue = (ANALOG_MIN_VALUE + pInput->u8_MinValueOffset);
-  pInput->u16_Value = (pInput->u16_Value > u16_MaxValue) ? u16_MaxValue : pInput->u16_Value; 
-  pInput->u16_Value = (pInput->u16_Value < u16_MinValue) ? u16_MinValue : pInput->u16_Value; 
+  // TODO: Make sure configurations are possible since inverts and trimmings might affect how the endpoint needs to be adjusted.
+  // There are currently a few bugs.
+  pInput->u16_Value = (pInput->u16_Value > pInput->u16_MaxValue) ? pInput->u16_MaxValue : pInput->u16_Value; 
+  pInput->u16_Value = (pInput->u16_Value < pInput->u16_MinValue) ? pInput->u16_MinValue : pInput->u16_Value; 
 }
 
 /* Process trimming and add the current trim offset to the actual value.*/
 void v_processTrimming(RemoteChannelInput_t* pInput)
 {
-  pInput->u16_Value += pInput->u8_Trim;
+  uint8_t u8_trimOffset = (pInput->u16_Trim - ANALOG_HALF_VALUE);
+  pInput->u16_Value += u8_trimOffset;
 }
 
 void v_invertInput(RemoteChannelInput_t* pInput)
