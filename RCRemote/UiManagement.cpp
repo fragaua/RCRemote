@@ -72,6 +72,7 @@ static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateN
 static void updateRemoteConfigurationTrimming(uint8_t channelIdx, uint16_t newTrimmingValue);
 static void updateRemoteConfigurationEndpoint(uint8_t channelIdx, uint16_t newEndpointLow, uint16_t newEndpointUpper);
 static void updateRemoteConfigurationInvert(uint8_t channelIdx);
+static bool isConfigurationValid(uint16_t trimming, uint16_t endpointLow, uint16_t endpointUpper);
 
 
 void v_UiM_init(UiM_t_rPorts* pReceiverPorts, UiM_t_pPorts* pProviderPorts)
@@ -163,9 +164,9 @@ void v_UiM_update()
     v_UiC_updateComponent((Component_t*) &(communicationState), (void*) commStateStr);
     v_UiC_updateComponent((Component_t*) &(testButton1),        (void*) tb1);
     v_UiC_updateComponent((Component_t*) &(testButton2),        (void*) tb1);
-    v_UiC_updateComponent((Component_t*)&(configurationMainTitle), (void*) options[UiContextManager.globals.configurationMenuSelectedOptionIdx].itemText);
 
-    v_UiC_updateComponent((Component_t*)&(configurationSubTitle), (void*) analogId[UiContextManager.globals.channelMenuSelectedOptionIdx].itemText);
+
+
     updateAdjustmentMonitors(&(UiContextManager.rPorts->uiManagementInputs->scrollWheel), UiContextManager.rPorts->uiManagementInputs->holdButtonSelect);
 
 
@@ -302,12 +303,13 @@ static void switchToConfigurationPage(void* selectedConfigurationIdx)
 }
 
 
-static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateNextValueButton)
+static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateNextValueButton) // TODO: This could easily be a smaller function
 {
     // TODO: have one or two values depending on the selected configuration.
     uint32_t        updateValue;
     static uint16_t lastValueBeforeUpdating = (*adjustmentWheel);
     static bool     updateNextValue         = false;
+    static bool     invalidConfiguration    = false;
     bool            trimmingSelected        = UiContextManager.globals.configurationMenuSelectedOptionIdx == 0; // TODO: Replace with macro instead of magic 0
     bool            shouldContinue          = !updateNextValue && updateNextValueButton;  // Whether or not to continue through. Trimming page will end the edit and endpoint will select the next point to adjust. 
     bool            adjustmentFinished      = updateNextValue && updateNextValueButton; // If we are already in next value and hold button is pressed, adjustment is finished.
@@ -317,8 +319,15 @@ static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateN
         {
             if(shouldContinue) // If hold button is clicked on the trimming menu, simply update configuration and forward request to main page.
             {
-                updateRemoteConfigurationTrimming(UiContextManager.globals.channelMenuSelectedOptionIdx, *(adjustmentWheel));
-                v_UiM_requestPageChange(&monitoringPage);
+                // Before  saving configuration, make sure it's valid and cross check trim with currently configured endpoints
+                invalidConfiguration = !isConfigurationValid((*adjustmentWheel), UiContextManager.rPorts->remoteChannelInputs[UiContextManager.globals.channelMenuSelectedOptionIdx].u16_MinValue, 
+                                                            UiContextManager.rPorts->remoteChannelInputs[UiContextManager.globals.channelMenuSelectedOptionIdx].u16_MaxValue);
+
+                if(!invalidConfiguration)
+                {
+                    updateRemoteConfigurationTrimming(UiContextManager.globals.channelMenuSelectedOptionIdx, *(adjustmentWheel));
+                    v_UiM_requestPageChange(&monitoringPage);
+                }
             }
             
             updateValue = ((((uint32_t)*adjustmentWheel) << 16) | ((uint32_t)*adjustmentWheel & 0xFFFF));
@@ -332,20 +341,34 @@ static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateN
             }
             else if(adjustmentFinished)
             {
-                updateRemoteConfigurationEndpoint(UiContextManager.globals.channelMenuSelectedOptionIdx, lastValueBeforeUpdating, (*adjustmentWheel));
-                v_UiM_requestPageChange(&monitoringPage);
+                // Before saving configuration, make sure it's valid and cross check it between each endpoint and the currently configured Trim
+                invalidConfiguration = !isConfigurationValid(UiContextManager.rPorts->remoteChannelInputs[UiContextManager.globals.channelMenuSelectedOptionIdx].u16_Trim, lastValueBeforeUpdating, (*adjustmentWheel));
+
+                if(!invalidConfiguration)
+                {
+                    updateRemoteConfigurationEndpoint(UiContextManager.globals.channelMenuSelectedOptionIdx, lastValueBeforeUpdating, (*adjustmentWheel));
+                    v_UiM_requestPageChange(&monitoringPage);
+                }
+                else
+                {
+                    updateNextValue = false; // Also, restart the current state
+                }
             }
             
             updateValue = updateNextValue ? ((((uint32_t)*adjustmentWheel) << 16) | ((uint32_t)lastValueBeforeUpdating & 0xFFFF)) : (uint32_t)(*adjustmentWheel); // TODO: complex expression, wrap some macros for bit management here
         }
 
-        v_UiC_updateComponent((Component_t*) &(adjustmentBar), (void*) (&updateValue)); // TODO: dont use globals here
+        v_UiC_updateComponent((Component_t*) &(adjustmentBar), (void*) (&updateValue));
     }
     else
     {
-        updateNextValue = false;
+        invalidConfiguration = false;
+        updateNextValue      = false;
     }
 
+    // If we have an invalid configuration after trying to continue, display 'Invalid Configuration'
+    v_UiC_updateComponent((Component_t*)&(configurationMainTitle), (void*) (invalidConfiguration ? "Invd" : options[UiContextManager.globals.configurationMenuSelectedOptionIdx].itemText));
+    v_UiC_updateComponent((Component_t*)&(configurationSubTitle),  (void*) (invalidConfiguration ? "Cfg"  : analogId[UiContextManager.globals.channelMenuSelectedOptionIdx].itemText));
 }
 
 
@@ -368,4 +391,11 @@ static void updateRemoteConfigurationInvert(uint8_t channelIdx)
 {
     UiContextManager.rPorts->remoteChannelInputs[channelIdx].b_InvertInput = !UiContextManager.rPorts->remoteChannelInputs[channelIdx].b_InvertInput; 
     UiContextManager.pPorts->configurationUpdated = true;
+}
+
+static bool isConfigurationValid(uint16_t trimming, uint16_t endpointLow, uint16_t endpointUpper)
+{
+
+    return ((trimming > endpointLow) && (trimming < endpointUpper)); // This condition should be sufficient to ensure than endpoint low is lower than upper, as well.
+
 }
