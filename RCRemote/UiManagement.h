@@ -74,10 +74,14 @@ typedef struct UiM_t_pPorts
 }UiM_t_pPorts;
 
 
-// Global variables that need sharing across project specific functions. This is project specific information.
+// Global variables that need sharing across project specific functions. This is mostly project specific information.
 typedef struct UiM_t_Globals
-{   
+{      
+    /** Generic state globals **/
+    Page_t* nextPageRequest; // Holds the next requested page by the UiManager. Page gets changed at the end of the current update cycle
 
+
+    /** Project specific **/
     uint8_t channelMenuSelectedOptionIdx       : 3;
     uint8_t configurationMenuSelectedOptionIdx : 3;
 

@@ -54,9 +54,16 @@ static UiM_t_contextManager UiContextManager;
 /** Internal function declaration **/
 static void v_UiM_processUIManagementInputs(UiM_t_Inputs* uiInputs);
 static bool b_UiM_risingEdge(uint8_t prevValue, uint8_t currentValue, uint8_t desiredEdge);
-static bool b_UiM_buttonHold(bool risingEdge, bool currentValue, unsigned long* timeHolding);
+static bool b_UiM_buttonHold(bool risingEdge, bool currentValue, unsigned long* timeHolding, bool* holdPreviouslyTriggered);
 static void v_UiM_updateProviderPorts(void);
-
+// Wrapper function to the UiC page function. Here we make sure inputs are restarted so they aren't re-used on the next page.
+// This also enforces the idea that inputs are obtained in RAW form in the application, processed here in UiM and only passed
+// to certain components on UiC that require updates from them. However, the actual User Input is UiM responsability.
+// Aditionally, the page is only actually changed at the end of the current update cycle. This function simply places a
+// page request on hold.
+static void v_UiM_requestPageChange(Page_t* page);
+// Actual page change processing where UI inputs are cleared and UiC_changePage is called.
+static void v_UiM_processPageChange();
 
 /**  Project Specific functions  **/ // Todo: eventually we can have a separate project specific file.
 static void buildCommunicationString(bool connectionDropped, unsigned long txTime, char* commStateString);
@@ -124,7 +131,6 @@ void v_UiM_update()
     char commStateStr[MAX_NR_CHARS] = "NCom";
     char tb1[7];
     uint8_t i;
-
     // DEBUG
     snprintf(tb1, 7, "%d %d %d", UiContextManager.rPorts->uiManagementInputs->inputButtonLeft, 
                                  UiContextManager.rPorts->uiManagementInputs->inputButtonSelect, 
@@ -137,7 +143,7 @@ void v_UiM_update()
     // Update pages (Temporary: for now, on every page, if I hold the Left button it goes back to monitoring
     if(UiContextManager.rPorts->uiManagementInputs->holdButtonLeft)
     {
-        v_UiC_changePage(&monitoringPage);
+        v_UiM_requestPageChange(&monitoringPage);
     }
 
     
@@ -159,7 +165,7 @@ void v_UiM_update()
     UiC_Input_t temp2 = {
         UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonLeft, 
         UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonRight, 
-        UiContextManager.rPorts->uiManagementInputs->holdButtonSelect
+        UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonSelect
     };
     v_UiC_updateComponent((Component_t*) &optionsMenu, (void*) &temp);
     v_UiC_updateComponent((Component_t*) &channelChooseMenu, (void*) &temp2);
@@ -170,11 +176,11 @@ void v_UiM_update()
     updateAdjustmentMonitors(&(UiContextManager.rPorts->uiManagementInputs->scrollWheel), UiContextManager.rPorts->uiManagementInputs->holdButtonSelect);
 
 
-
     v_UiM_updateProviderPorts();
 
-    // Draw current active page
+    // Draw current active page and process the next page
     v_UiC_draw();
+    v_UiM_processPageChange();
 
 }
 
@@ -198,17 +204,22 @@ static void v_UiM_updateProviderPorts(void)
 
 static void v_UiM_processUIManagementInputs(UiM_t_Inputs* uiInputs)
 {  
+    // TODO: Improve this and make it more generic so different uis can simply have an arbitrary nr of buttons. Code is the same for every one anyway,
     static unsigned long timeHoldingSelect = 0;
     static unsigned long timeHoldingLeft   = 0;
     static unsigned long timeHoldingRight  = 0;
+
+    static bool holdPreviouslyTriggeredSelect = false;
+    static bool holdPreviouslyTriggeredLeft = false;
+    static bool holdPreviouslyTriggeredRight = false;
 
     uiInputs->risingEdgeButtonSelect       = b_UiM_risingEdge(uiInputs->prevButtonSelect,   uiInputs->inputButtonSelect, HIGH);
     uiInputs->risingEdgeButtonLeft         = b_UiM_risingEdge(uiInputs->prevButtonLeft,     uiInputs->inputButtonLeft,   HIGH);
     uiInputs->risingEdgeButtonRight        = b_UiM_risingEdge(uiInputs->prevButtonRight,    uiInputs->inputButtonRight,  HIGH);
     
-    uiInputs->holdButtonSelect             = b_UiM_buttonHold(uiInputs->risingEdgeButtonSelect, uiInputs->inputButtonSelect, &timeHoldingSelect);
-    uiInputs->holdButtonLeft               = b_UiM_buttonHold(uiInputs->risingEdgeButtonLeft,   uiInputs->inputButtonLeft,   &timeHoldingLeft);
-    uiInputs->holdButtonRight              = b_UiM_buttonHold(uiInputs->risingEdgeButtonRight,  uiInputs->inputButtonRight,  &timeHoldingRight);
+    uiInputs->holdButtonSelect             = b_UiM_buttonHold(uiInputs->risingEdgeButtonSelect, uiInputs->inputButtonSelect, &timeHoldingSelect, &holdPreviouslyTriggeredSelect);
+    uiInputs->holdButtonLeft               = b_UiM_buttonHold(uiInputs->risingEdgeButtonLeft,   uiInputs->inputButtonLeft,   &timeHoldingLeft,   &holdPreviouslyTriggeredLeft);
+    uiInputs->holdButtonRight              = b_UiM_buttonHold(uiInputs->risingEdgeButtonRight,  uiInputs->inputButtonRight,  &timeHoldingRight,  &holdPreviouslyTriggeredRight);
 
     // Update button states for next cycle
     uiInputs->prevButtonSelect             = uiInputs->inputButtonSelect;
@@ -217,21 +228,50 @@ static void v_UiM_processUIManagementInputs(UiM_t_Inputs* uiInputs)
 
 }
 
-
 static bool b_UiM_risingEdge(uint8_t prevValue, uint8_t currentValue, uint8_t desiredEdge)
 {
     return (prevValue != currentValue) && (currentValue == desiredEdge);
 }
 
-static bool b_UiM_buttonHold(bool risingEdge, bool currentValue, unsigned long* timeHolding)
+static bool b_UiM_buttonHold(bool risingEdge, bool currentValue, unsigned long* timeHolding, bool* holdPreviouslyTriggered)
 {
     if(risingEdge)
     {
         *timeHolding = millis();
+        *holdPreviouslyTriggered = false;
     }
 
-    return ((millis() - *timeHolding) > 1500) && (currentValue == HIGH);
+    if(((millis() - *timeHolding) > 1500) && (currentValue == HIGH) && (!(*holdPreviouslyTriggered)))
+    {
+        *holdPreviouslyTriggered = true;
+        return true;
+    }
+
+    if(currentValue == LOW)
+    {
+        *holdPreviouslyTriggered = false; // Reset the flag so we can trigger holds again.
+    }
+
+    return false;
 }
+
+static void v_UiM_requestPageChange(Page_t* page)
+{
+    UiContextManager.globals.nextPageRequest = page;
+}
+
+static void v_UiM_processPageChange()
+{
+    if(UiContextManager.globals.nextPageRequest != NULL)
+    {
+        v_UiC_changePage(UiContextManager.globals.nextPageRequest);
+    }
+    // Always clear the nextPageRequest
+    UiContextManager.globals.nextPageRequest = NULL;
+
+
+}
+
 
 
 
@@ -247,8 +287,8 @@ static void buildCommunicationString(bool connectionDropped, unsigned long txTim
 
 static void switchToConfigurationOptionsPage(void* selectedChannelIdx)
 {
-    v_UiC_changePage(&optionsPage);
     UiContextManager.globals.channelMenuSelectedOptionIdx = (uint8_t) selectedChannelIdx;
+    v_UiM_requestPageChange(&optionsPage);
 }
 
 static void switchToConfigurationPage(void* selectedConfigurationIdx)
@@ -257,13 +297,12 @@ static void switchToConfigurationPage(void* selectedConfigurationIdx)
     // call the configuration update functions and go to the main page.
     if((uint8_t) selectedConfigurationIdx == 2) // TODO: replace with macro instead of magic 0
     {
-        Serial.println("Inverted");
         updateRemoteConfigurationInvert(UiContextManager.globals.channelMenuSelectedOptionIdx);
-        v_UiC_changePage(&monitoringPage);
+        v_UiM_requestPageChange(&monitoringPage);
     }
     else
     {
-        v_UiC_changePage(&configurationPage);
+        v_UiM_requestPageChange(&configurationPage);
         UiContextManager.globals.configurationMenuSelectedOptionIdx = (uint8_t) selectedConfigurationIdx;
 
         char* mainTitle = options[(uint8_t) selectedConfigurationIdx].itemText;
@@ -291,7 +330,7 @@ static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateN
             if(trimmingSelected) // In case trimming is selected 
             {
                 updateRemoteConfigurationTrimming(UiContextManager.globals.channelMenuSelectedOptionIdx, *(adjustmentWheel));
-                v_UiC_changePage(&monitoringPage);
+                v_UiM_requestPageChange(&monitoringPage);
             }
             else // Otherwise we are in 'endpoint adjustment' and in that case, proceed to adjust the next value.
             {
@@ -303,9 +342,8 @@ static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateN
         else if(updateNextValue && updateNextValueButton)
         {
             updateRemoteConfigurationEndpoint(UiContextManager.globals.channelMenuSelectedOptionIdx, lastValueBeforeUpdating, (*adjustmentWheel));
-            v_UiC_changePage(&monitoringPage);
+            v_UiM_requestPageChange(&monitoringPage);
         }
-
         updateValue = updateNextValue ? ((((uint32_t)*adjustmentWheel) << 16) | ((uint32_t)lastValueBeforeUpdating & 0xFFFF)) : (uint32_t)(*adjustmentWheel); // TODO: complex expression, wrap some macros for bit management here
         v_UiC_updateComponent((Component_t*) &(adjustmentBar), (void*) (&updateValue)); // TODO: dont use globals here
     }
