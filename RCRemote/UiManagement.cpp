@@ -101,8 +101,8 @@ void v_UiM_init(UiM_t_rPorts* pReceiverPorts, UiM_t_pPorts* pProviderPorts)
     e_UiC_addComponent((Component_t*)&(options[0]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 20, "Trimming", (void*) switchToConfigurationPage});
     e_UiC_addComponent((Component_t*)&(options[1]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 27, "EndPoint",  (void*) switchToConfigurationPage});
     e_UiC_addComponent((Component_t*)&(options[2]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 34, "Invert",   (void*) switchToConfigurationPage});
-    e_UiC_addComponent((Component_t*)&(configurationMainTitle),&configurationPage,  UIC_COMPONENT_TEXT, {45, 5, ""});
-    e_UiC_addComponent((Component_t*)&(configurationSubTitle), &configurationPage,  UIC_COMPONENT_TEXT, {50, 15, ""});
+    e_UiC_addComponent((Component_t*)&(configurationMainTitle),&configurationPage,  UIC_COMPONENT_TEXT, {55, 5, ""});
+    e_UiC_addComponent((Component_t*)&(configurationSubTitle), &configurationPage,  UIC_COMPONENT_TEXT, {60, 15, ""});
 
     
 
@@ -146,6 +146,10 @@ void v_UiM_update()
     {
         v_UiC_updateComponent((Component_t*) &(progressBars[i]), &(UiContextManager.rPorts->remoteChannelInputs[i].u16_Value));
     }
+
+
+    // URGENT TODO: Button inputs are propagatted whenever we changed pages. We need to reset the inputs whenever they are 'used' by some component
+    // Maybe the input side of things should be rethinked since, while it works, it's not clear where it should be handled exactly. 
 
     // TODO: remove this temp
     UiC_Input_t temp = {UiContextManager.rPorts->uiManagementInputs->risingEdgeButtonLeft, 

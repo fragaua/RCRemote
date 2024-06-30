@@ -267,7 +267,7 @@ static void drawAnalogMonitorComponent(Component_t_AnalogMonitor* pAnalogMonitor
 {
 
   DisplayHandle.drawFrame(pAnalogMonitor->base.pos.x, pAnalogMonitor->base.pos.y, 108, 6);
-  DisplayHandle.drawBox(pAnalogMonitor->base.pos.x, pAnalogMonitor->base.pos.y, map(pAnalogMonitor->value, 0, 1023, 108, 0), 6); // TODO: the map function assumes that we always have values from 0-1023. that's not generic enough for me
+  DisplayHandle.drawBox(pAnalogMonitor->base.pos.x, pAnalogMonitor->base.pos.y, map(pAnalogMonitor->value, 0, 1023, 0, 108), 6); // TODO: the map function assumes that we always have values from 0-1023. that's not generic enough for me
 }
 
 static void updateAnalogMonitorComponent(Component_t_AnalogMonitor* pAnalogMonitor, uint16_t* value)
@@ -277,14 +277,14 @@ static void updateAnalogMonitorComponent(Component_t_AnalogMonitor* pAnalogMonit
 
 static void drawAnalogAdjustmentComponent(Component_t_AnalogAdjustment* pAnalogAdjust)
 {
-  uint16_t x1 = map(pAnalogAdjust->value1, 0, 1023, 115, 0);// TODO: the map function assumes that we always have values from 0-1023. that's not generic enough for me
-  uint16_t x2 = map(pAnalogAdjust->value2, 0, 1023, 115, 0);
+  uint16_t x1 = map(pAnalogAdjust->value1, 0, 1023, 3, 125);// TODO: the map function assumes that we always have values from 0-1023. that's not generic enough for me
+  uint16_t x2 = map(pAnalogAdjust->value2, 0, 1023, 3, 125);
   DisplayHandle.drawFrame(pAnalogAdjust->base.pos.x, pAnalogAdjust->base.pos.y, 125, 13);
 
   DisplayHandle.drawLine(x1, pAnalogAdjust->base.pos.y-3, x1, pAnalogAdjust->base.pos.y+16);
   DisplayHandle.drawLine(x2, pAnalogAdjust->base.pos.y-3, x2, pAnalogAdjust->base.pos.y+16);
 
-  DisplayHandle.setCursor(x1, pAnalogAdjust->base.pos.y + 20);
+  DisplayHandle.setCursor(pAnalogAdjust->value1 > 950 ? x1 - 16 : x1, pAnalogAdjust->base.pos.y + 20); // TODO: Again, too many references to the original analog values. This isn't generic.
   DisplayHandle.print(pAnalogAdjust->value1);
 
   DisplayHandle.setCursor(x2, pAnalogAdjust->base.pos.y - 7);
