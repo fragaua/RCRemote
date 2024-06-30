@@ -287,7 +287,7 @@ static void drawAnalogAdjustmentComponent(Component_t_AnalogAdjustment* pAnalogA
   DisplayHandle.setCursor(pAnalogAdjust->value1 > 950 ? x1 - 16 : x1, pAnalogAdjust->base.pos.y + 20); // TODO: Again, too many references to the original analog values. This isn't generic.
   DisplayHandle.print(pAnalogAdjust->value1);
 
-  DisplayHandle.setCursor(x2, pAnalogAdjust->base.pos.y - 7);
+  DisplayHandle.setCursor(pAnalogAdjust->value2 > 950 ? x2 - 16 : x2, pAnalogAdjust->base.pos.y -7);
   DisplayHandle.print(pAnalogAdjust->value2);
   // DisplayHandle.drawLine(x2, 3, x2, 9);
 }
@@ -295,7 +295,6 @@ static void drawAnalogAdjustmentComponent(Component_t_AnalogAdjustment* pAnalogA
 
 static void updateAnalogAdjustmentComponent(Component_t_AnalogAdjustment* pAnalogAdjust, uint32_t* values)
 {
-  Serial.println(*values);
   pAnalogAdjust->value1 = (uint16_t)(*values & 0xFFFF);
   pAnalogAdjust->value2 = (uint16_t)(*values >> 16) & 0xFFFF;
 }
