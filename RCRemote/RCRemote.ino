@@ -18,8 +18,8 @@ RemoteChannelInput_t RemoteInputs[N_CHANNELS] =
                                     {JOYSTICK_RIGHT_AXIS_X_PIN, 0u,   ANALOG_HALF_VALUE,   200u,               750u,              true,     true,    "JRX"}, 
                                     {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u,   ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,    "JRY"}, 
                                     {POT_RIGHT_PIN,             0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,    "PR"},  
-                                    {SWITCH_SP_LEFT_PIN,        0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  true,     false,   "SWL"}, 
-                                    {SWITCH_SP_RIGHT_PIN,       0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  true,     false,   "SWR"}};
+                                    {SWITCH_SP_LEFT_PIN,        0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,     false,   "SWL"}, 
+                                    {SWITCH_SP_RIGHT_PIN,       0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,     false,   "SWR"}};
 
 RemoteCommunicationState_t RemoteCommunicationState = {false, 0l};
 UiM_t_Inputs  uiInputs;
@@ -126,6 +126,7 @@ void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, Respon
     if(pRemoteChannelInput[i].b_Analog)
     {
       pRemoteChannelInput[i].u16_Value = (uint16_t)analogRead(pRemoteChannelInput[i].u8_Pin);
+      v_invertInput(&pRemoteChannelInput[i]); // Invertion of analog channels msut be processed before trimming and endpoint
       v_processTrimming(&pRemoteChannelInput[i]); // Trimming is processed before adjustment to ensure trim offset doesn't overload the min-max values
       v_processEndpointAdjustment(&pRemoteChannelInput[i]);
 #if RESPONSIVE_ANALOG_READ == ON
@@ -136,9 +137,9 @@ void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, Respon
     else
     {
       pRemoteChannelInput[i].u16_Value = map((uint16_t)digitalRead(pRemoteChannelInput[i].u8_Pin), LOW, HIGH, ANALOG_MIN_VALUE, ANALOG_MAX_VALUE);
+      v_invertInput(&pRemoteChannelInput[i]); // Non-Analog channels can also be inverted.
     }
     
-    v_invertInput(&pRemoteChannelInput[i]); // All channels, regardless of being analog or not, can be inverted
   }
 }
 
@@ -244,6 +245,9 @@ void loop()
 
   // Process UI inputs
   v_computeButtonVoltageDividers(&uiInputs);
+  // TODO: There is a small flaw with the scroll wheel. Since we process the trimmings and endpoints in the 'readChannelInputs' function,
+  // if we ever change the end point configuration for the pot input, it also affects the adjustment input. We need a 'raw' read to pass into the uiInputs
+  // so it doesn't get affected by the configuration  values.
   uiInputs.scrollWheel = RemoteInputs[POT_RIGHT_CHANNEL_IDX].u16_Value; // Aditionally, let's map the scroll wheel here, for now
   v_UiM_update();
   // TODO: use the response data to save configurations to eeprom. Later load configurations from eeprom at startup.

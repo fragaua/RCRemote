@@ -356,15 +356,15 @@ static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateN
 static void updateRemoteConfigurationTrimming(uint8_t channelIdx, uint16_t newTrimmingValue)
 {
     // TODO: Make sure configurations are valid, otherwise display a msg and restart process (needed here?)
-    UiContextManager.rPorts->remoteChannelInputs[channelIdx].u16_Trim = (uint8_t) newTrimmingValue;
-    UiContextManager.pPorts->configurationUpdated = true;
+    UiContextManager.rPorts->remoteChannelInputs[channelIdx].u16_Trim = newTrimmingValue;
+    UiContextManager.pPorts->configurationUpdated = true; 
 }
 
 static void updateRemoteConfigurationEndpoint(uint8_t channelIdx, uint16_t newEndpointLow, uint16_t newEndpointUpper)
 {
     // TODO: Make sure configurations are valid, otherwise display a msg and restart process (endpoint up cant be lower than endpoint low, for example)
-    UiContextManager.rPorts->remoteChannelInputs[channelIdx].u16_MaxValue = (uint8_t) newEndpointUpper;
-    UiContextManager.rPorts->remoteChannelInputs[channelIdx].u16_MinValue = (uint8_t) newEndpointLow;
+    UiContextManager.rPorts->remoteChannelInputs[channelIdx].u16_MaxValue = newEndpointUpper;
+    UiContextManager.rPorts->remoteChannelInputs[channelIdx].u16_MinValue = newEndpointLow;
     UiContextManager.pPorts->configurationUpdated = true;
 }
 
