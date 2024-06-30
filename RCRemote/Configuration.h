@@ -28,14 +28,33 @@
 */
 
 #define BATTERY_INDICATION        OFF
-#define OLED_SCREEN               ON
+#define OLED_SCREEN               OFF
 #define OLED_SCREEN_LOW_MEM_MODE  ON
-#define RESPONSIVE_ANALOG_READ    ON
+#define RESPONSIVE_ANALOG_READ    ON // TODO: Make sure we can disable responsive read. At this point it isn't possible without breaking the software.
 
 
 /* 
  *  PIN Definitions  
  */
+
+
+// Input Buttons Voltage divider thresholds
+#define ANALOG_BUTTON_VDIV_THRESHOLD_B1   450u
+#define ANALOG_BUTTON_VDIV_THRESHOLD_B2   650u
+#define ANALOG_BUTTON_VDIV_THRESHOLD_B3   950u
+
+#define JOYSTICK_LEFT_AXIS_X_CHANNEL_IDX  0u
+#define JOYSTICK_LEFT_AXIS_Y_CHANNEL_IDX  1u
+// #define JOYSTICK_LEFT_SWITCH_CHANNEL_IDX  2u
+#define JOYSTICK_RIGHT_AXIS_X_CHANNEL_IDX 2u
+#define JOYSTICK_RIGHT_AXIS_Y_CHANNEL_IDX 3u
+// #define JOYSTICK_RIGHT_SWITCH_CHANNEL_IDX 5u
+#define POT_RIGHT_CHANNEL_IDX             4u
+#define SWITCH_SP_RIGHT_CHANNEL_IDX       5u
+#define SWITCH_SP_LEFT_CHANNEL_IDX        6u
+
+
+
 
 #define JOYSTICK_RIGHT_AXIS_X_PIN A1
 #define JOYSTICK_RIGHT_AXIS_Y_PIN A0
@@ -53,7 +72,7 @@
 #define POT_LEFT_PIN              A7 
 #define POT_RIGHT_PIN             A7 
 #define POT_LEFT_ACTIVATE_PIN      5
-#define POT_RIGHT_ACTIVATE_PIN     4
+#define POT_RIGHT_ACTIVATE_PIN     4 // Leftovers of trying to read two analog signals in one single analog input. 
 
 // We can use 1 analog to read both pots.
 
@@ -62,7 +81,7 @@
 
 
 #define DISPLAY_SCL               A5
-#define DISPLAY_SCA               A4
+#define DISPLAY_SDA               A4
 
 #define RF24_CSN_PIN              8  // When CSN is low, module listens on SPI port
 #define RF24_CE_PIN               9  // CE Selects whether transmit or receive
@@ -87,20 +106,37 @@
 
 
 /* Radio configuration */ // TODO: Add here other configurations like PA level and data rate
-#define TX_TIME_LONG    1000 // in us. Time to trigger LED bklinking if tx was too long
-#define TX_BLINK_TIME   2000000 // in usecs.  LED blink time
-#define TX_CONNECTION_LOST_COUNTER_THRESHOLD 10 // After this ammount of successive failed sends, declare connection lost
+#define TX_TIMEOUT    300 // in milliseconds. Time to trigger "No communication" on screen
+
+/*
+* NRF24L01 RFCom related
+*/
+#define RF_ADDRESS_SIZE 6
+const byte RF_Address[RF_ADDRESS_SIZE] = "1Node";
 
 
-typedef struct Input_t{
-  uint8_t  u8_Pin;          // Current configured pin on the board.
-  uint16_t u16_Value;       // Current, actual converted value.
-  uint8_t  u8_Trim;         // Middle point adjustment. 
-  uint8_t  u8_MinValueOffset; // Minimum value Difference, for end-point adjustment. Not actual value in order to save memory and avoid u16 type. 
-  uint8_t  u8_MaxValueOffset; // Maximum value Difference, for end-point adjustment.
+typedef struct RemoteChannelInput_t
+{
+  uint8_t  u8_Pin;              // Current configured pin on the board.
+  uint16_t u16_Value;          // Current, actual converted value.
+  uint16_t u16_Trim;           // Middle point absolute value. Offset is computed in the processTrimming function.
+  uint16_t u16_MinValue; // Absolute value for MinValue limit, for end point adjustment
+  uint16_t u16_MaxValue; // Absolute value for MaxValue limit, for end point adjustment
   bool     b_InvertInput;
-  bool     b_Analog;        // Analog input or not
+  bool     b_Analog;           // Analog input or not
   char     c_Name[MAX_NAME_CHAR+1]; // Channel name
-}Input_t;
+}RemoteChannelInput_t;
+
+//
+typedef struct RemoteCommunicationState_t
+{
+  bool           b_ConnectionLost;
+  unsigned long  l_TransmissionTime; // In uSeconds
+}RemoteCommunicationState_t;
+
+typedef struct RFPayload
+{
+  uint16_t u16_Channels[N_CHANNELS];
+}RFPayload;
 
 #endif

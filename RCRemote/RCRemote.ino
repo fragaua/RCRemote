@@ -2,62 +2,29 @@
 #include <RF24.h>
 #include <Joystick_if.h>
 
-#if OLED_SCREEN == ON
-  #if OLED_SCREEN_LOW_MEM_MODE == ON
-    #include "DisplayFunctions.h"
-  #else
-    #include "RemoteDisplay.h"
-  #endif
-#endif
+#include "UiManagement.h"
 
 
 
-#define DEBUG_BUTTONS ON
-
-
-/*
-* NRF24L01 RFCom related
-*/
-#define RF_ADDRESS_SIZE 6
-const byte RF_Address[RF_ADDRESS_SIZE] = "1Node";
-
-
-#define ANALOG_BUTTON_VDIV_THRESHOLD_DOWN 505u
-#define ANALOG_BUTTON_VDIV_THRESHOLD_UP   650u
-
-#define JOYSTICK_LEFT_AXIS_X_CHANNEL_IDX  0u
-#define JOYSTICK_LEFT_AXIS_Y_CHANNEL_IDX  1u
-// #define JOYSTICK_LEFT_SWITCH_CHANNEL_IDX  2u
-#define JOYSTICK_RIGHT_AXIS_X_CHANNEL_IDX 2u
-#define JOYSTICK_RIGHT_AXIS_Y_CHANNEL_IDX 3u
-// #define JOYSTICK_RIGHT_SWITCH_CHANNEL_IDX 5u
-#define POT_RIGHT_CHANNEL_IDX             4u
-#define SWITCH_SP_RIGHT_CHANNEL_IDX       5u
-#define SWITCH_SP_LEFT_CHANNEL_IDX        6u
-
-
-
-typedef struct RFPayload{
-  uint16_t u16_Channels[N_CHANNELS];
-}RFPayload;
 
 
 // Declare and configure each input on the remote controller.
-// TODO: Later, the menus and inputs should be used to configure trimming and end-point adjustment on the fly.
-// They shouldn't be configured here like some of the inputs are.
-                                   // Pin, Value, Trim, Min, Max, isAnalog, Invert, Channel Name  
-Input_t RemoteInputs[N_CHANNELS] = {{JOYSTICK_LEFT_AXIS_X_PIN,  0u, 0u, 0u,   0u,   false, true, "JLX"}, 
-                                    {JOYSTICK_LEFT_AXIS_Y_PIN,  0u, 0u, 255u, 255u, false, true, "JLY"}, 
-                                    /*{JOYSTICK_LEFT_SWITCH_PIN,  0u, false, "JLB"},*/
-                                    {JOYSTICK_RIGHT_AXIS_X_PIN, 0u, 0u, 255u, 255u, true,  true, "JRX"}, 
-                                    {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u, 0u, 0u,   0u,   false, true, "JRY"}, 
-                                    /*{JOYSTICK_RIGHT_SWITCH_PIN, 0u, false, "JRB"},*/
-                                    {POT_RIGHT_PIN,             0u, 0u, 0u,   0u,   false, true, "PR"},  
-                                    {SWITCH_SP_LEFT_PIN,        0u, 0u, 0u,   0u,   false, false, "SWL"}, 
-                                    {SWITCH_SP_RIGHT_PIN,       0u, 0u, 0u,   0u,   false, false, "SWR"}};
+// As of now, this configuration can be changed on the fly via the UI. 
+// TODO: Make sure the configuration can be saved in the EEPROM/Non Volatile memory.
+RemoteChannelInput_t RemoteInputs[N_CHANNELS] = 
+                                    // Pin,                     Val,  Trim,                Min,                Max,               Invert,  isAnalog,  Channel Name  
+                                   {{JOYSTICK_LEFT_AXIS_X_PIN,  0u,   ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,    "JLX"}, 
+                                    {JOYSTICK_LEFT_AXIS_Y_PIN,  0u,   ANALOG_HALF_VALUE,   200u,               750u,              false,    true,    "JLY"}, 
+                                    {JOYSTICK_RIGHT_AXIS_X_PIN, 0u,   ANALOG_HALF_VALUE,   200u,               750u,              true,     true,    "JRX"}, 
+                                    {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u,   ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,    "JRY"}, 
+                                    {POT_RIGHT_PIN,             0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,    "PR"},  
+                                    {SWITCH_SP_LEFT_PIN,        0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    false,   "SWL"}, 
+                                    {SWITCH_SP_RIGHT_PIN,       0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    false,   "SWR"}};
 
-
-
+RemoteCommunicationState_t RemoteCommunicationState = {false, 0l};
+UiM_t_Inputs  uiInputs;
+UiM_t_rPorts  uiInputData = {&uiInputs, RemoteInputs, &RemoteCommunicationState};
+UiM_t_pPorts  uiResponseData = {false};
 
 #if RESPONSIVE_ANALOG_READ == ON
 #include <ResponsiveAnalogRead.h>
@@ -73,9 +40,7 @@ BatteryIndication battery(BATTERY_INDICATION_PIN, R1, R2, BATTERY_9V);
 
 // Remote Transmitter_Remote;
 RFPayload payload;
-RF24 Radio;  // using pin 7 for the CE pin, and pin 8 for the CSN pin
-
-
+RF24 Radio;
 
 int freeRam () 
 {
@@ -85,188 +50,190 @@ int freeRam ()
 }
 
 
-void v_Remote_Modules_Init()
+// TODO: make a struct containing the responsive analog reads so that we can easily enable or disable it via if directives
+// TODO: Improve naming to enforce the concept of "remote CHANNEL input" and ordinary "remote input" (such as buttons)
+void v_initRemoteInputs(RemoteChannelInput_t* pRemoteInputs, ResponsiveAnalogRead* pRespAnalogRead)
 {
-  
+  // Remote CHANNEL inputs
   uint8_t i;
   for(i = 0; i < N_CHANNELS; i++)
   {
     pinMode(RemoteInputs[i].u8_Pin,    RemoteInputs[i].b_Analog ? INPUT : INPUT_PULLUP);
 #if RESPONSIVE_ANALOG_READ == ON
-    ResponsiveAnalogs[i].begin(RemoteInputs[i].u8_Pin, true);
+    if(RemoteInputs[i].b_Analog) // Only start responsive analogs for analog inputs.
+    {
+      ResponsiveAnalogs[i].begin(RemoteInputs[i].u8_Pin, true);
+    }
 #endif
   }
-
-  pinMode(POT_LEFT_ACTIVATE_PIN,       OUTPUT);
-  pinMode(POT_RIGHT_ACTIVATE_PIN,      OUTPUT);
-  digitalWrite(POT_RIGHT_ACTIVATE_PIN, HIGH);
-  digitalWrite(POT_LEFT_ACTIVATE_PIN,  LOW);
+  // Remote input 
+  pinMode(BUTTON_ANALOG_PIN, INPUT);
   
-  pinMode(BUTTON_ANALOG_PIN,           INPUT);
-
-  // Buttons are read form analog input, with voltage divider
-
-  Radio = RF24(RF24_CE_PIN, RF24_CSN_PIN);
-  bool b_Success = Radio.begin();
-  if(b_Success == true)
-  {
-    Serial.println(F("Initialized radio!"));
-    //Radio.printDetails();
-  }
-  else
-  {
-    Serial.println(F("Failed radio initialization"));
-  }
-
-  Radio.setPALevel(RF24_PA_LOW);
-  Radio.setPayloadSize(sizeof(RFPayload));
-  Radio.openWritingPipe(RF_Address); 
-  Radio.stopListening(); // Turn on TX Mode
+  // On the first version of Remote Controller, necessary for POT RIGHT to work.
+  pinMode(POT_RIGHT_ACTIVATE_PIN, OUTPUT);
+  digitalWrite(POT_RIGHT_ACTIVATE_PIN, HIGH);
 }
 
-
-void v_Compute_Button_Voltage_Dividers(InternalRemoteInputs_t *Buttons)
+boolean b_initRadio(RF24* pRadio)
 {
-  // TODO: Debounce button input
-  int i_Analog_Read = analogRead(BUTTON_ANALOG_PIN);
-  uint8_t i;
-  for(i = 0; i < N_BUTTONS; i++)
-  {
-    Buttons[i] = false; // Reset buttons by default
-  }
+  *pRadio = RF24(RF24_CE_PIN, RF24_CSN_PIN);
+  bool b_Success = pRadio->begin();
 
-  if(i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_DOWN)
+  if(b_Success)
   {
-    Buttons[0] = true;
+    // Radio.setAutoAck(false); // Making sure auto ack isn't ON to ensure we can properly calcualte timeouts
+    Radio.setPALevel(RF24_PA_LOW);
+    Radio.setPayloadSize(sizeof(RFPayload));
+    Radio.openWritingPipe(RF_Address); 
+    Radio.stopListening(); // Turn on TX Mode
   }
-  else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_DOWN && i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_UP)
-  {
-    Buttons[1] = true;
-  }
-  else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_UP && i_Analog_Read < 1023)
-  {
-    Buttons[2] = true;
-  }
-
+  return b_Success;
 }
 
 
-void v_Read_Inputs(Input_t *const p_RemoteInput)
+
+
+void v_computeButtonVoltageDividers(UiM_t_Inputs* pButtons)
+{
+  int i_Analog_Read = analogRead(BUTTON_ANALOG_PIN);
+  // Reset buttons by default
+  pButtons->inputButtonLeft    = LOW; 
+  pButtons->inputButtonRight   = LOW; 
+  pButtons->inputButtonSelect  = LOW; 
+
+
+  if(i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_B1)
+  {
+    pButtons->inputButtonRight = HIGH;
+  }
+  else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_B1 && i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_B2)
+  {
+    pButtons->inputButtonLeft = HIGH;
+  }
+  else if(i_Analog_Read > ANALOG_BUTTON_VDIV_THRESHOLD_B2 && i_Analog_Read < ANALOG_BUTTON_VDIV_THRESHOLD_B3)
+  {
+    pButtons->inputButtonSelect = HIGH;
+  }
+}
+
+
+
+void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, ResponsiveAnalogRead* pRespAnalogRead)
 {
   uint8_t i;
   for(i = 0; i < N_CHANNELS; i++)
   {
-    if(RemoteInputs[i].b_Analog)
+    if(pRemoteChannelInput[i].b_Analog)
     {
-      RemoteInputs[i].u16_Value = (uint16_t)analogRead(RemoteInputs[i].u8_Pin);
-      v_Invert_Input(&RemoteInputs[i]);
-      v_Process_Trimming(&RemoteInputs[i]); // Trimming is processed before adjustment to ensure trim offset doesn't overload the min-max values
-      v_Process_Endpoint_Adjustment(&RemoteInputs[i]);
+      pRemoteChannelInput[i].u16_Value = (uint16_t)analogRead(pRemoteChannelInput[i].u8_Pin);
+      v_invertInput(&pRemoteChannelInput[i]); // Invertion of analog channels msut be processed before trimming and endpoint
+      v_processTrimming(&pRemoteChannelInput[i]); // Trimming is processed before adjustment to ensure trim offset doesn't overload the min-max values
+      v_processEndpointAdjustment(&pRemoteChannelInput[i]);
 #if RESPONSIVE_ANALOG_READ == ON
-      ResponsiveAnalogs[i].update(RemoteInputs[i].u16_Value);
-      RemoteInputs[i].u16_Value = ResponsiveAnalogs[i].getValue();
+      pRespAnalogRead[i].update(pRemoteChannelInput[i].u16_Value);
+      pRemoteChannelInput[i].u16_Value = pRespAnalogRead[i].getValue();
 #endif
-
     }
     else
     {
-      RemoteInputs[i].u16_Value = map((uint16_t)digitalRead(RemoteInputs[i].u8_Pin), 0, 1, 0, 1023);
+      pRemoteChannelInput[i].u16_Value = map((uint16_t)digitalRead(pRemoteChannelInput[i].u8_Pin), LOW, HIGH, ANALOG_MIN_VALUE, ANALOG_MAX_VALUE);
+      v_invertInput(&pRemoteChannelInput[i]); // Non-Analog channels can also be inverted.
     }
+    
   }
 }
 
 /* Processes endpoint adjustment and overrides provided value if value is outside current configured endpoints */
-void v_Process_Endpoint_Adjustment(Input_t* p_input)
+void v_processEndpointAdjustment(RemoteChannelInput_t* pInput)
 {
-  uint16_t u16_MaxValue = (ANALOG_MAX_VALUE - p_input->u8_MaxValueOffset);
-  uint16_t u16_MinValue = (ANALOG_MIN_VALUE + p_input->u8_MinValueOffset);
-  p_input->u16_Value = (p_input->u16_Value > u16_MaxValue) ? u16_MaxValue : p_input->u16_Value; 
-  p_input->u16_Value = (p_input->u16_Value < u16_MinValue) ? u16_MinValue : p_input->u16_Value; 
-}
-/* Process trimming and add the current trim offset to the actual value.*/
-void v_Process_Trimming(Input_t* p_input)
-{
-  p_input->u16_Value += p_input->u8_Trim;
+  pInput->u16_Value = (pInput->u16_Value > pInput->u16_MaxValue) ? pInput->u16_MaxValue : pInput->u16_Value; 
+  pInput->u16_Value = (pInput->u16_Value < pInput->u16_MinValue) ? pInput->u16_MinValue : pInput->u16_Value; 
 }
 
-void v_Invert_Input(Input_t* p_input)
+/* Process trimming and add the current trim offset to the actual value.*/
+void v_processTrimming(RemoteChannelInput_t* pInput)
 {
-  if(p_input->b_InvertInput)
+  uint8_t u8_trimOffset = (pInput->u16_Trim - ANALOG_HALF_VALUE);
+  pInput->u16_Value += u8_trimOffset;
+}
+
+void v_invertInput(RemoteChannelInput_t* pInput)
+{
+  if(pInput->b_InvertInput)
   {
-    p_input->u16_Value = map(p_input->u16_Value, ANALOG_MIN_VALUE, ANALOG_MAX_VALUE, ANALOG_MAX_VALUE, ANALOG_MIN_VALUE);
+    pInput->u16_Value = map(pInput->u16_Value, ANALOG_MIN_VALUE, ANALOG_MAX_VALUE, ANALOG_MAX_VALUE, ANALOG_MIN_VALUE);
   }
 }
 
-void v_Build_Payload(const Input_t * p_RemoteInput, RFPayload *p_payload)
+void v_buildPayload(const RemoteChannelInput_t* pRemoteChannelInput, RFPayload* pPayload)
 {
   uint8_t i;
   for(i = 0; i < N_CHANNELS; i++)
   {
-    p_payload->u16_Channels[i] = p_RemoteInput[i].u16_Value;
+    pPayload->u16_Channels[i] = pRemoteChannelInput[i].u16_Value;
   }
 
 }
 
 
-// /* Display functions */
-#if OLED_SCREEN == ON
-  View_t_Buttons              ViewButtons[N_VIEW_BUTTONS] = {{true, false, "Mon"}, {false, false, "Trm"}, {false, false, "Chn"}};
-  InternalRemoteInputs_t      InternalRemoteInputs[N_BUTTONS];
-  #if OLED_SCREEN_LOW_MEM_MODE == ON
-   Adafruit_SSD1306  display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET); 
-  #else
-    View v;
-    AnalogMonitor analog_monitors[N_CHANNELS];
-  #endif
-#endif
+boolean b_sendPayload(RF24* pRadio, RFPayload* pPayload, unsigned long* lTransmissionTime)
+{
+  // Time measure
+  unsigned long lStartTimer = micros(); 
+  boolean bPackageAcknowledged = pRadio->write(pPayload, sizeof(RFPayload));             
+  unsigned long lEndTimer = micros();
 
-void setup() {
-  Serial.begin(115200);
-  // printf_begin();
+  *lTransmissionTime = (lEndTimer - lStartTimer); // Total time to tx or timeout(configured internaly in rf24 as 60-70ms) if never acknowledged 
+  return  bPackageAcknowledged; 
+}
 
-  Serial.println(freeRam()); // TODO: Give visual feedback if ram isn't enough
-  Serial.print(F("Bytes\n"));
+boolean b_transmissionTimeout(boolean bPackageAcknowledged)
+{
+  static unsigned long lPreviousSuccessfulTxTimestamp = 0l;
+  bool bConnectionLost = false;
 
 
-  // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-#if OLED_SCREEN == ON
-  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) 
+  if(bPackageAcknowledged)
   {
-    Serial.println(F("SSD1306 allocation failed"));
-    for(;;); // Don't proceed, loop forever // TODO: Give visual feedback (internal LED for example)
+    lPreviousSuccessfulTxTimestamp = millis();
   }
-#endif
-
-#if OLED_SCREEN == ON
-  #if OLED_SCREEN_LOW_MEM_MODE == OFF
-    v = View();
-    uint8_t i;
-    for(i = 0; i < N_CHANNELS; i++)
+  else
+  {
+    if(millis() - lPreviousSuccessfulTxTimestamp > TX_TIMEOUT)
     {
-      analog_monitors[i] = AnalogMonitor(&display);
-      analog_monitors[i].setPosition(18, (i*5) + (i*2) + 15);
-      v.addComponent(&(analog_monitors[i]));
+      bConnectionLost = true;
     }
-  #endif
-  
-  display.display();
-#endif
+  }
+  return bConnectionLost;
+}
 
-  v_Remote_Modules_Init();
+void setup() 
+{
+  Serial.begin(115200);
+  Serial.print(freeRam()); // TODO: Halt program, use u8x8 instead and display a msg on the screen
+  Serial.print(F("Bytes\n"));
+  
+  v_initRemoteInputs(RemoteInputs, ResponsiveAnalogs);
+  boolean b_initRadioSuccess = b_initRadio(&Radio);
+  // TODO: Display a msg on screen if radio wasn't properly initialized
+  
+  v_UiM_init(&uiInputData, &uiResponseData);
+
 }
 
 
-void loop() {
-#if OLED_SCREEN == ON
-  display.clearDisplay();
-#endif
-  static int i32_previous_tx_time;
-  static uint8_t u8_not_received_counter = 0;
-  bool b_ConnectionLost = false;
-  
-  v_Read_Inputs(RemoteInputs);
-  v_Compute_Button_Voltage_Dividers(InternalRemoteInputs);
-  v_Build_Payload(RemoteInputs, &payload);
+void loop() 
+{
+
+  unsigned long lTxTime;
+  v_readChannelInputs(RemoteInputs, ResponsiveAnalogs);
+ 
+  if(uiResponseData.analogSendAllowed)
+  {
+    v_buildPayload(RemoteInputs, &payload);
+    boolean bSendSuccess = b_sendPayload(&Radio, &payload, &(RemoteCommunicationState.l_TransmissionTime));
+    RemoteCommunicationState.b_ConnectionLost = b_transmissionTimeout(bSendSuccess);
+  }
 
 #if BATTERY_INDICATION == ON
   bool battery_ready = battery.readBatteryVoltage(); // This is working but can't be seen with the arduino connected to pc. Otherwise will read the 5v instead of 9
@@ -274,59 +241,12 @@ void loop() {
   // display_wrapper.printBatteryOLED(99.9);
 #endif
 
-  unsigned long start_timer = micros();                
-  bool RF_OK = Radio.write(&payload, sizeof(RFPayload));
-  unsigned long end_timer = micros();
-  int i32_tx_time = end_timer - start_timer;
-  
-  if (RF_OK) 
-  {
-    u8_not_received_counter = 0; // Reset not received counter
-    b_ConnectionLost = false; // TODO: Check if it's enough to just set as true once we send one message
-
-    
-    if((i32_tx_time - i32_previous_tx_time) > TX_TIME_LONG)
-    {
-   
- 
-    }
- 
-  } 
-  else 
-  {
-    if(u8_not_received_counter >= TX_CONNECTION_LOST_COUNTER_THRESHOLD)
-    {
-      b_ConnectionLost = true;
-    }
-    else
-    {
-      u8_not_received_counter++;
-    }
-
-  }
-
-#if OLED_SCREEN == ON
-  #if OLED_SCREEN_LOW_MEM_MODE == ON
-    v_updateOptionButtons(&display, ViewButtons, InternalRemoteInputs);
-    v_drawOptionButtons(&display, ViewButtons);
-    v_drawAnalogs(&display, RemoteInputs);
-    v_printConnectionStatusOLED(&display, i32_tx_time, b_ConnectionLost);
-  #else
-    View_t_Input inputs = {InternalRemoteInputs[0], InternalRemoteInputs[1], InternalRemoteInputs[2]};
-    v.update(inputs);
-    v.draw();
-  #endif
- 
-  display.display(); // Only display the buffer at the end of each loop
-#endif
-
-  i32_previous_tx_time = i32_tx_time;
-
-#if DEBUG_BATTERY_INDICATION == ON
-    Serial.print(F("Battery %: "));
-    Serial.println(battery.getBatteryPercentage());
-    Serial.println(battery.getCurrentVoltage());
-#endif
-
-  delay(20);
+  // Process UI inputs
+  v_computeButtonVoltageDividers(&uiInputs);
+  // TODO: There is a small flaw with the scroll wheel. Since we process the trimmings and endpoints in the 'readChannelInputs' function,
+  // if we ever change the end point configuration for the pot input, it also affects the adjustment input. We need a 'raw' read to pass into the uiInputs
+  // so it doesn't get affected by the configuration  values.
+  uiInputs.scrollWheel = RemoteInputs[POT_RIGHT_CHANNEL_IDX].u16_Value; // Aditionally, let's map the scroll wheel here, for now
+  v_UiM_update();
+  // TODO: use the response data to save configurations to eeprom. Later load configurations from eeprom at startup.
 }
