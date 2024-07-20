@@ -173,7 +173,9 @@ void v_UiM_update()
     v_UiM_updateProviderPorts();
 
     // Draw current active page and process the next page
+
     v_UiC_draw();
+
     v_UiM_processPageChange();
 
 }
@@ -274,7 +276,8 @@ static void buildCommunicationString(bool connectionDropped, unsigned long txTim
 {
     if(!connectionDropped)
     {
-        snprintf(commStateString, MAX_NR_CHARS, "%d US", txTime);
+        txTime *= 0.001; // Conversion from us to ms
+        snprintf(commStateString, MAX_NR_CHARS, "%lums", txTime);
     }
 }
 
