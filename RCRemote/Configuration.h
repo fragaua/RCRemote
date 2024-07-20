@@ -27,11 +27,14 @@
 *
 */
 
+
+#define DEBUG                     OFF
+
 #define BATTERY_INDICATION        OFF
 #define OLED_SCREEN               OFF
 #define OLED_SCREEN_LOW_MEM_MODE  ON
 #define RESPONSIVE_ANALOG_READ    ON // TODO: Make sure we can disable responsive read. At this point it isn't possible without breaking the software.
-
+#define TIMEOUT_DETECTION         OFF
 
 /* 
  *  PIN Definitions  
@@ -105,8 +108,11 @@
 
 
 
+#define EXPONENTIAL_VALUE 0.9f
+
+
 /* Radio configuration */ // TODO: Add here other configurations like PA level and data rate
-#define TX_TIMEOUT    300 // in milliseconds. Time to trigger "No communication" on screen
+#define TX_TIMEOUT    5000 // in milliseconds. Time to trigger "No communication" on screen
 
 /*
 * NRF24L01 RFCom related
@@ -124,8 +130,10 @@ typedef struct RemoteChannelInput_t
   uint16_t u16_MaxValue; // Absolute value for MaxValue limit, for end point adjustment
   bool     b_InvertInput;
   bool     b_Analog;           // Analog input or not
+  bool     b_expControl;      // Exponential control (For now, while in this low memory controller, don't allow for tuning of this)
   char     c_Name[MAX_NAME_CHAR+1]; // Channel name
 }RemoteChannelInput_t;
+// TODO: on higher memory controllers, we should have a raw and processed value saved in this structure instead of changing the actual value.
 
 //
 typedef struct RemoteCommunicationState_t

@@ -12,14 +12,14 @@
 // As of now, this configuration can be changed on the fly via the UI. 
 // TODO: Make sure the configuration can be saved in the EEPROM/Non Volatile memory.
 RemoteChannelInput_t RemoteInputs[N_CHANNELS] = 
-                                    // Pin,                     Val,  Trim,                Min,                Max,               Invert,  isAnalog,  Channel Name  
-                                   {{JOYSTICK_LEFT_AXIS_X_PIN,  0u,   ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,    "JLX"}, 
-                                    {JOYSTICK_LEFT_AXIS_Y_PIN,  0u,   ANALOG_HALF_VALUE,   200u,               750u,              false,    true,    "JLY"}, 
-                                    {JOYSTICK_RIGHT_AXIS_X_PIN, 0u,   ANALOG_HALF_VALUE,   200u,               750u,              true,     true,    "JRX"}, 
-                                    {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u,   ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,    "JRY"}, 
-                                    {POT_RIGHT_PIN,             0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,    "PR"},  
-                                    {SWITCH_SP_LEFT_PIN,        0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    false,   "SWL"}, 
-                                    {SWITCH_SP_RIGHT_PIN,       0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    false,   "SWR"}};
+                                    // Pin,                     Val,  Trim,                Min,                Max,               Invert,  isAnalog,, exp  Channel Name  
+                                   {{JOYSTICK_LEFT_AXIS_X_PIN,  0u,   ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,  true, "JLX"}, 
+                                    {JOYSTICK_LEFT_AXIS_Y_PIN,  0u,   ANALOG_HALF_VALUE,   200u,               750u,              false,    true,  true, "JLY"}, 
+                                    {JOYSTICK_RIGHT_AXIS_X_PIN, 0u,   ANALOG_HALF_VALUE,   200u,               750u,              true,     true,  true, "JRX"}, 
+                                    {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u,   ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,  true, "JRY"}, 
+                                    {POT_RIGHT_PIN,             0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,  true, "PR"},  
+                                    {SWITCH_SP_LEFT_PIN,        0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    false, true, "SWL"}, 
+                                    {SWITCH_SP_RIGHT_PIN,       0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    false, true, "SWR"}};
 
 RemoteCommunicationState_t RemoteCommunicationState = {false, 0l};
 UiM_t_Inputs  uiInputs;
@@ -126,6 +126,10 @@ void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, Respon
     if(pRemoteChannelInput[i].b_Analog)
     {
       pRemoteChannelInput[i].u16_Value = (uint16_t)analogRead(pRemoteChannelInput[i].u8_Pin);
+      if(pRemoteChannelInput[i].b_expControl)
+      {
+        v_applyExponential(&pRemoteChannelInput[i].u16_Value);
+      }
       v_invertInput(&pRemoteChannelInput[i]); // Invertion of analog channels msut be processed before trimming and endpoint
       v_processTrimming(&pRemoteChannelInput[i]); // Trimming is processed before adjustment to ensure trim offset doesn't overload the min-max values
       v_processEndpointAdjustment(&pRemoteChannelInput[i]);
@@ -165,6 +169,24 @@ void v_invertInput(RemoteChannelInput_t* pInput)
   }
 }
 
+void v_normalizeInput(uint16_t rawInput, float* normalizedOutput)
+{
+  *normalizedOutput = (rawInput / (float)ANALOG_HALF_VALUE) - 1.0;
+}
+
+void v_toRaw(float normalizedInput, uint16_t* rawOutput)
+{
+  *rawOutput = (normalizedInput + 1.0) * ANALOG_HALF_VALUE;
+}
+
+void v_applyExponential(uint16_t* rawInput) // TODO: have this take the remotechannelinput just like every other processing function
+{
+  float normalizedValue;
+  v_normalizeInput(*rawInput, &normalizedValue);
+  normalizedValue = normalizedValue * abs(normalizedValue) * (EXPONENTIAL_VALUE * (1.0 - abs(normalizedValue)) + abs(normalizedValue));
+  v_toRaw(normalizedValue, rawInput);
+} 
+
 void v_buildPayload(const RemoteChannelInput_t* pRemoteChannelInput, RFPayload* pPayload)
 {
   uint8_t i;
@@ -175,9 +197,26 @@ void v_buildPayload(const RemoteChannelInput_t* pRemoteChannelInput, RFPayload* 
 
 }
 
+#if DEBUG == ON
+void printPayload(RFPayload* pl)
+{
+  uint8_t i;
+  // for(i = 0; i < N_CHANNELS; i++)
+  // {
+  //   Serial.println(pl->u16_Channels[i]);
+  // }
+  Serial.println(pl->u16_Channels[1]);
+  // Serial.println();
+}
+#endif
+
 
 boolean b_sendPayload(RF24* pRadio, RFPayload* pPayload, unsigned long* lTransmissionTime)
 {
+
+#if DEBUG == ON
+  printPayload(pPayload);
+#endif
   // Time measure
   unsigned long lStartTimer = micros(); 
   boolean bPackageAcknowledged = pRadio->write(pPayload, sizeof(RFPayload));             
@@ -207,6 +246,7 @@ boolean b_transmissionTimeout(boolean bPackageAcknowledged)
   return bConnectionLost;
 }
 
+
 void setup() 
 {
   Serial.begin(115200);
@@ -225,7 +265,6 @@ void setup()
 void loop() 
 {
 
-  unsigned long lTxTime;
   v_readChannelInputs(RemoteInputs, ResponsiveAnalogs);
  
   if(uiResponseData.analogSendAllowed)
