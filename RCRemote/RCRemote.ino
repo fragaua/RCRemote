@@ -17,6 +17,7 @@ RemoteChannelInput_t RemoteInputs[N_CHANNELS] =
                                     {JOYSTICK_LEFT_AXIS_Y_PIN,  0u,   ANALOG_HALF_VALUE,   200u,               750u,              false,    true,  true, "JLY"}, 
                                     {JOYSTICK_RIGHT_AXIS_X_PIN, 0u,   ANALOG_HALF_VALUE,   200u,               750u,              true,     true,  true, "JRX"}, 
                                     {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u,   ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,  true, "JRY"}, 
+                                    {POT_LEFT_PIN,              0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,  true, "PL"},  
                                     {POT_RIGHT_PIN,             0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,  true, "PR"},  
                                     {SWITCH_SP_LEFT_PIN,        0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    false, true, "SWL"}, 
                                     {SWITCH_SP_RIGHT_PIN,       0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    false, true, "SWR"}};
@@ -52,7 +53,11 @@ int freeRam ()
 
 // TODO: make a struct containing the responsive analog reads so that we can easily enable or disable it via if directives
 // TODO: Improve naming to enforce the concept of "remote CHANNEL input" and ordinary "remote input" (such as buttons)
+#if RESPONSIVE_ANALOG_READ == ON
 void v_initRemoteInputs(RemoteChannelInput_t* pRemoteInputs, ResponsiveAnalogRead* pRespAnalogRead)
+#else
+void v_initRemoteInputs(RemoteChannelInput_t* pRemoteInputs)
+#endif
 {
   // Remote CHANNEL inputs
   uint8_t i;
@@ -66,12 +71,17 @@ void v_initRemoteInputs(RemoteChannelInput_t* pRemoteInputs, ResponsiveAnalogRea
     }
 #endif
   }
+
+  // UI Management input initialization
+  pinMode(INPUT_BUTTON_LEFT_PIN,   INPUT_PULLUP);
+  pinMode(INPUT_BUTTON_RIGHT_PIN,  INPUT_PULLUP);
+  pinMode(INPUT_BUTTON_SELECT_PIN, INPUT_PULLUP);
   // Remote input 
-  pinMode(BUTTON_ANALOG_PIN, INPUT);
+  // pinMode(BUTTON_ANALOG_PIN, INPUT);
   
   // On the first version of Remote Controller, necessary for POT RIGHT to work.
-  pinMode(POT_RIGHT_ACTIVATE_PIN, OUTPUT);
-  digitalWrite(POT_RIGHT_ACTIVATE_PIN, HIGH);
+  // pinMode(POT_RIGHT_ACTIVATE_PIN, OUTPUT);
+  // digitalWrite(POT_RIGHT_ACTIVATE_PIN, HIGH);
 }
 
 boolean b_initRadio(RF24* pRadio)
@@ -82,11 +92,17 @@ boolean b_initRadio(RF24* pRadio)
   if(b_Success)
   {
     // Radio.setAutoAck(false); // Making sure auto ack isn't ON to ensure we can properly calcualte timeouts
-    Radio.setPALevel(RF24_PA_LOW);
-    Radio.setPayloadSize(sizeof(RFPayload));
-    Radio.openWritingPipe(RF_Address); 
-    Radio.stopListening(); // Turn on TX Mode
+    pRadio->setPALevel(RF24_PA_LOW);
+    pRadio->setPayloadSize(sizeof(RFPayload));
+    pRadio->openWritingPipe(RF_Address); 
+    pRadio->stopListening(); // Turn on TX Mode
+    pRadio->printPrettyDetails();  
   }
+  else
+  {
+    Serial.println("Failed init radio");
+  }
+
   return b_Success;
 }
 
@@ -117,8 +133,11 @@ void v_computeButtonVoltageDividers(UiM_t_Inputs* pButtons)
 }
 
 
-
+#if RESPONSIVE_ANALOG_READ == ON
 void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, ResponsiveAnalogRead* pRespAnalogRead)
+#else
+void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput)
+#endif
 {
   uint8_t i;
   for(i = 0; i < N_CHANNELS; i++)
@@ -221,7 +240,7 @@ boolean b_sendPayload(RF24* pRadio, RFPayload* pPayload, unsigned long* lTransmi
   unsigned long lStartTimer = micros(); 
   boolean bPackageAcknowledged = pRadio->write(pPayload, sizeof(RFPayload));             
   unsigned long lEndTimer = micros();
-
+  Serial.println(bPackageAcknowledged);
   *lTransmissionTime = (lEndTimer - lStartTimer); // Total time to tx or timeout(configured internaly in rf24 as 60-70ms) if never acknowledged 
   return  bPackageAcknowledged; 
 }
@@ -252,12 +271,16 @@ void setup()
   Serial.begin(115200);
   Serial.print(freeRam()); // TODO: Halt program, use u8x8 instead and display a msg on the screen
   Serial.print(F("Bytes\n"));
-  
+#if RESPONSIVE_ANALOG_READ == ON
   v_initRemoteInputs(RemoteInputs, ResponsiveAnalogs);
+#else
+  v_initRemoteInputs(RemoteInputs);
+#endif
   boolean b_initRadioSuccess = b_initRadio(&Radio);
   // TODO: Display a msg on screen if radio wasn't properly initialized
   
   v_UiM_init(&uiInputData, &uiResponseData);
+  Radio.printDetails();
 
 }
 
@@ -265,13 +288,18 @@ void setup()
 void loop() 
 {
 
+#if RESPONSIVE_ANALOG_READ == ON
   v_readChannelInputs(RemoteInputs, ResponsiveAnalogs);
- 
+#else
+  v_readChannelInputs(RemoteInputs);
+#endif
+
   if(uiResponseData.analogSendAllowed)
   {
     v_buildPayload(RemoteInputs, &payload);
     boolean bSendSuccess = b_sendPayload(&Radio, &payload, &(RemoteCommunicationState.l_TransmissionTime));
     RemoteCommunicationState.b_ConnectionLost = b_transmissionTimeout(bSendSuccess);
+    // TODO: Fix bug, oled not showing proper comm value
   }
 
 #if BATTERY_INDICATION == ON
@@ -281,7 +309,11 @@ void loop()
 #endif
 
   // Process UI inputs
-  v_computeButtonVoltageDividers(&uiInputs);
+  // v_computeButtonVoltageDividers(&uiInputs);
+  uiInputs.inputButtonLeft = !digitalRead(INPUT_BUTTON_LEFT_PIN);
+  uiInputs.inputButtonRight = !digitalRead(INPUT_BUTTON_RIGHT_PIN);
+  uiInputs.inputButtonSelect = !digitalRead(INPUT_BUTTON_SELECT_PIN);
+
   // TODO: There is a small flaw with the scroll wheel. Since we process the trimmings and endpoints in the 'readChannelInputs' function,
   // if we ever change the end point configuration for the pot input, it also affects the adjustment input. We need a 'raw' read to pass into the uiInputs
   // so it doesn't get affected by the configuration  values.

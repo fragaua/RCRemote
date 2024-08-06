@@ -98,9 +98,9 @@ void v_UiM_init(UiM_t_rPorts* pReceiverPorts, UiM_t_pPorts* pProviderPorts)
     
     for(i = 0; i < N_CHANNELS; i++)
     {
-        uint8_t y = (i*7) + 15; // TODO: Improve this
+        uint8_t y = (i*7) + 10; // TODO: Improve this
         e_UiC_addComponent((Component_t*)&(analogId[i]),       &monitoringPage, UIC_COMPONENT_MENU_ITEM,  {3,  y+5, pReceiverPorts->remoteChannelInputs[i].c_Name, (void*) switchToConfigurationOptionsPage}); // TODO call back needs to be caleld with the parameter to which channel to update.
-        e_UiC_addComponent((Component_t*)&(progressBars[i]),   &monitoringPage, UIC_COMPONENT_ANALOGMONITOR, {18, y, NULL});
+        e_UiC_addComponent((Component_t*)&(progressBars[i]),   &monitoringPage, UIC_COMPONENT_ANALOGMONITOR, {18, y});
 
     }
     
