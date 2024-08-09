@@ -61,7 +61,7 @@ void v_UiC_init()
   // TODO: Improve for generic and multiple displays
   DisplayHandle.begin();
   DisplayHandle.clearDisplay();
-  DisplayHandle.setFont(u8g2_font_smolfont_tf);
+  DisplayHandle.setFont(u8g2_font_4x6_tf);
   
 
 }
