@@ -131,6 +131,7 @@ void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput)
     if(pRemoteChannelInput[i].b_Analog)
     {
       pRemoteChannelInput[i].u16_Value = (uint16_t)analogRead(pRemoteChannelInput[i].u8_Pin);
+      v_smoothAnalogEMA(&pRemoteChannelInput[i], i); // For now, raw value is also smoothend
       pRemoteChannelInput[i].u16_RawValue = pRemoteChannelInput[i].u16_Value; // Save raw value before any processing 
       if(pRemoteChannelInput[i].b_expControl)
       {
@@ -188,6 +189,13 @@ void v_applyExponential(uint16_t* rawInput) // TODO: have this take the remotech
   normalizedValue = normalizedValue * abs(normalizedValue) * (EXPONENTIAL_VALUE * (1.0 - abs(normalizedValue)) + abs(normalizedValue));
   v_toRaw(normalizedValue, rawInput);
 } 
+
+void v_smoothAnalogEMA(RemoteChannelInput_t* pInput, uint8_t channelIdx)
+{
+  static uint16_t average[N_CHANNELS];
+  average[channelIdx] = EMA_ALPHA_VALUE * pInput->u16_Value + (1 - EMA_ALPHA_VALUE) * average[channelIdx]; // Still unsure if this is an improvement, but looks better with not much delay.
+  pInput->u16_Value = average[channelIdx];
+}
 
 void v_buildPayload(const RemoteChannelInput_t* pRemoteChannelInput, RFPayload* pPayload)
 {
