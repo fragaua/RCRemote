@@ -167,7 +167,7 @@ void v_UiM_update()
 
 
 
-    updateAdjustmentMonitors(&(UiContextManager.rPorts->uiManagementInputs->scrollWheel), UiContextManager.rPorts->uiManagementInputs->holdButtonSelect);
+    updateAdjustmentMonitors(&(UiContextManager.rPorts->uiManagementInputs->scrollWheelLeft), UiContextManager.rPorts->uiManagementInputs->holdButtonSelect);
 
 
     v_UiM_updateProviderPorts();
@@ -183,6 +183,8 @@ void v_UiM_update()
 
 static void v_UiM_updateProviderPorts(void)
 {
+    bool trimmingSelected = UiContextManager.globals.configurationMenuSelectedOptionIdx == 0; // TODO: Replace with macro instead of magic 0
+
     // For now, updates the "analogSendAllowed" based on the current page.
     UiContextManager.pPorts->analogSendAllowed = false;
     Page_t* activePage = UiC_getActivePage();
@@ -194,6 +196,10 @@ static void v_UiM_updateProviderPorts(void)
     }
     else if(activePage == &configurationPage)
     {
+        if(trimmingSelected)
+        {
+            UiContextManager.pPorts->analogSendAllowed = true;
+        }
         // If we leave this page by clicking "go" or smthng, save the configuration (in this case it's provided through the rports)
     }
 }
@@ -320,15 +326,21 @@ static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateN
     {
         if(trimmingSelected)
         {
+            // Live update of the trimming configuration value, in order to see in real time what is being configured
+            
+            // Before  saving configuration, make sure it's valid and cross check trim with currently configured endpoints
+            invalidConfiguration = !isConfigurationValid((*adjustmentWheel), UiContextManager.rPorts->remoteChannelInputs[UiContextManager.globals.channelMenuSelectedOptionIdx].u16_MinValue, 
+                                                        UiContextManager.rPorts->remoteChannelInputs[UiContextManager.globals.channelMenuSelectedOptionIdx].u16_MaxValue);
+            
+            if(!invalidConfiguration)
+            {
+                updateRemoteConfigurationTrimming(UiContextManager.globals.channelMenuSelectedOptionIdx, *(adjustmentWheel));
+            }
+            
             if(shouldContinue) // If hold button is clicked on the trimming menu, simply update configuration and forward request to main page.
             {
-                // Before  saving configuration, make sure it's valid and cross check trim with currently configured endpoints
-                invalidConfiguration = !isConfigurationValid((*adjustmentWheel), UiContextManager.rPorts->remoteChannelInputs[UiContextManager.globals.channelMenuSelectedOptionIdx].u16_MinValue, 
-                                                            UiContextManager.rPorts->remoteChannelInputs[UiContextManager.globals.channelMenuSelectedOptionIdx].u16_MaxValue);
-
                 if(!invalidConfiguration)
                 {
-                    updateRemoteConfigurationTrimming(UiContextManager.globals.channelMenuSelectedOptionIdx, *(adjustmentWheel));
                     v_UiM_requestPageChange(&monitoringPage);
                 }
             }

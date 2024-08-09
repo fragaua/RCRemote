@@ -12,15 +12,15 @@
 // As of now, this configuration can be changed on the fly via the UI. 
 // TODO: Make sure the configuration can be saved in the EEPROM/Non Volatile memory.
 RemoteChannelInput_t RemoteInputs[N_CHANNELS] = 
-                                    // Pin,                     Val,  Trim,                Min,                Max,               Invert,  isAnalog,, exp  Channel Name  
-                                   {{JOYSTICK_LEFT_AXIS_X_PIN,  0u,   ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,  true, "JLX"}, 
-                                    {JOYSTICK_LEFT_AXIS_Y_PIN,  0u,   ANALOG_HALF_VALUE,   200u,               750u,              false,    true,  true, "JLY"}, 
-                                    {JOYSTICK_RIGHT_AXIS_X_PIN, 0u,   ANALOG_HALF_VALUE,   200u,               750u,              true,     true,  true, "JRX"}, 
-                                    {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u,   ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,  true, "JRY"}, 
-                                    {POT_LEFT_PIN,              0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,  true, "PL"},  
-                                    {POT_RIGHT_PIN,             0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,  true, "PR"},  
-                                    {SWITCH_SP_LEFT_PIN,        0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    false, true, "SWL"}, 
-                                    {SWITCH_SP_RIGHT_PIN,       0u,   0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    false, true, "SWR"}};
+                                    // Pin,                     Val,RVal,  Trim,                Min,                Max,               Invert,  isAnalog,, exp  Channel Name  
+                                   {{JOYSTICK_LEFT_AXIS_X_PIN,  0u, 0u,  ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,  true, "JLX"}, 
+                                    {JOYSTICK_LEFT_AXIS_Y_PIN,  0u, 0u,  ANALOG_HALF_VALUE,   200u,               750u,              false,    true,  true, "JLY"}, 
+                                    {JOYSTICK_RIGHT_AXIS_X_PIN, 0u, 0u,  ANALOG_HALF_VALUE,   200u,               750u,              true,     true,  true, "JRX"}, 
+                                    {JOYSTICK_RIGHT_AXIS_Y_PIN, 0u, 0u,  ANALOG_HALF_VALUE,   ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,  true, "JRY"}, 
+                                    {POT_LEFT_PIN,              0u, 0u,  0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,  true, "PL"},  
+                                    {POT_RIGHT_PIN,             0u, 0u,  0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    true,  true, "PR"},  
+                                    {SWITCH_SP_LEFT_PIN,        0u, 0u,  0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    false, true, "SWL"}, 
+                                    {SWITCH_SP_RIGHT_PIN,       0u, 0u,  0u,                  ANALOG_MIN_VALUE,   ANALOG_MAX_VALUE,  false,    false, true, "SWR"}};
 
 RemoteCommunicationState_t RemoteCommunicationState = {false, 0l};
 UiM_t_Inputs  uiInputs;
@@ -132,6 +132,13 @@ void v_computeButtonVoltageDividers(UiM_t_Inputs* pButtons)
   }
 }
 
+void v_readButtons(UiM_t_Inputs* pInputs)
+{
+  pInputs->inputButtonLeft   = !digitalRead(INPUT_BUTTON_LEFT_PIN);
+  pInputs->inputButtonRight  = !digitalRead(INPUT_BUTTON_RIGHT_PIN);
+  pInputs->inputButtonSelect = !digitalRead(INPUT_BUTTON_SELECT_PIN);
+}
+
 
 #if RESPONSIVE_ANALOG_READ == ON
 void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, ResponsiveAnalogRead* pRespAnalogRead)
@@ -145,6 +152,7 @@ void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput)
     if(pRemoteChannelInput[i].b_Analog)
     {
       pRemoteChannelInput[i].u16_Value = (uint16_t)analogRead(pRemoteChannelInput[i].u8_Pin);
+      pRemoteChannelInput[i].u16_RawValue = pRemoteChannelInput[i].u16_Value; // Save raw value before any processing 
       if(pRemoteChannelInput[i].b_expControl)
       {
         v_applyExponential(&pRemoteChannelInput[i].u16_Value);
@@ -240,7 +248,6 @@ boolean b_sendPayload(RF24* pRadio, RFPayload* pPayload, unsigned long* lTransmi
   unsigned long lStartTimer = micros(); 
   boolean bPackageAcknowledged = pRadio->write(pPayload, sizeof(RFPayload));             
   unsigned long lEndTimer = micros();
-  Serial.println(bPackageAcknowledged);
   *lTransmissionTime = (lEndTimer - lStartTimer); // Total time to tx or timeout(configured internaly in rf24 as 60-70ms) if never acknowledged 
   return  bPackageAcknowledged; 
 }
@@ -310,14 +317,11 @@ void loop()
 
   // Process UI inputs
   // v_computeButtonVoltageDividers(&uiInputs);
-  uiInputs.inputButtonLeft = !digitalRead(INPUT_BUTTON_LEFT_PIN);
-  uiInputs.inputButtonRight = !digitalRead(INPUT_BUTTON_RIGHT_PIN);
-  uiInputs.inputButtonSelect = !digitalRead(INPUT_BUTTON_SELECT_PIN);
+  v_readButtons(&uiInputs);
 
-  // TODO: There is a small flaw with the scroll wheel. Since we process the trimmings and endpoints in the 'readChannelInputs' function,
-  // if we ever change the end point configuration for the pot input, it also affects the adjustment input. We need a 'raw' read to pass into the uiInputs
-  // so it doesn't get affected by the configuration  values.
-  uiInputs.scrollWheel = RemoteInputs[POT_RIGHT_CHANNEL_IDX].u16_Value; // Aditionally, let's map the scroll wheel here, for now
+  uiInputs.scrollWheelRight = RemoteInputs[POT_RIGHT_CHANNEL_IDX].u16_RawValue; // Aditionally, let's map the scroll wheel here, for now
+  uiInputs.scrollWheelLeft  = RemoteInputs[POT_LEFT_CHANNEL_IDX].u16_RawValue; // Aditionally, let's map the scroll wheel here, for now
+  
   v_UiM_update();
   // TODO: use the response data to save configurations to eeprom. Later load configurations from eeprom at startup.
 }

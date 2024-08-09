@@ -53,10 +53,10 @@
 #define JOYSTICK_RIGHT_AXIS_Y_CHANNEL_IDX 3u
 #define JOYSTICK_RIGHT_SWITCH_CHANNEL_IDX 5u
 
-// #define POT_LEFT_CHANNEL_IDX              4u
-#define POT_RIGHT_CHANNEL_IDX             4u
-#define SWITCH_SP_RIGHT_CHANNEL_IDX       5u
+#define POT_LEFT_CHANNEL_IDX              4u
+#define POT_RIGHT_CHANNEL_IDX             5u
 #define SWITCH_SP_LEFT_CHANNEL_IDX        6u
+#define SWITCH_SP_RIGHT_CHANNEL_IDX       7u
 
 
 
@@ -135,13 +135,14 @@ const byte RF_Address[RF_ADDRESS_SIZE] = "FG";
 typedef struct RemoteChannelInput_t
 {
   uint8_t  u8_Pin;              // Current configured pin on the board.
-  uint16_t u16_Value;          // Current, actual converted value.
-  uint16_t u16_Trim;           // Middle point absolute value. Offset is computed in the processTrimming function.
-  uint16_t u16_MinValue; // Absolute value for MinValue limit, for end point adjustment
-  uint16_t u16_MaxValue; // Absolute value for MaxValue limit, for end point adjustment
+  uint16_t u16_Value;           // Current, actual converted value.
+  uint16_t u16_RawValue;        // Current actual raw value without trimming or endpoint adjustment
+  uint16_t u16_Trim;            // Middle point absolute value. Offset is computed in the processTrimming function.
+  uint16_t u16_MinValue;        // Absolute value for MinValue limit, for end point adjustment
+  uint16_t u16_MaxValue;        // Absolute value for MaxValue limit, for end point adjustment
   bool     b_InvertInput;
-  bool     b_Analog;           // Analog input or not
-  bool     b_expControl;      // Exponential control (For now, while in this low memory controller, don't allow for tuning of this)
+  bool     b_Analog;            // Analog input or not
+  bool     b_expControl;        // Exponential control (For now, while in this low memory controller, don't allow for tuning of this)
   char     c_Name[MAX_NAME_CHAR+1]; // Channel name
 }RemoteChannelInput_t;
 // TODO: on higher memory controllers, we should have a raw and processed value saved in this structure instead of changing the actual value.
@@ -153,6 +154,7 @@ typedef struct RemoteCommunicationState_t
   unsigned long  l_TransmissionTime; // In uSeconds
 }RemoteCommunicationState_t;
 
+// Radio interface. Changes in this structure involve changes on the receiver as well
 typedef struct RFPayload
 {
   uint16_t u16_Channels[N_CHANNELS];

@@ -48,7 +48,8 @@ typedef struct UiM_t_Inputs
     uint16_t     prevButtonRight        : 1;
     uint16_t     prevButtonSelect       : 1;
 
-    uint16_t scrollWheel; 
+    uint16_t     scrollWheelLeft; 
+    uint16_t     scrollWheelRight; 
 
 }UiM_t_Inputs;
 
@@ -69,8 +70,7 @@ typedef struct UiM_t_pPorts
 
     // For this particular project we only need a 'configuration updated' flag, since the configuration pointer is passed through the rports
     // This is activated once after a config update and then replaced with 0 again.
-    bool configurationUpdated : 1; 
-
+    bool configurationUpdated : 1;     
 }UiM_t_pPorts;
 
 
