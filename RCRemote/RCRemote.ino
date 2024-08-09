@@ -27,10 +27,7 @@ UiM_t_Inputs  uiInputs;
 UiM_t_rPorts  uiInputData = {&uiInputs, RemoteInputs, &RemoteCommunicationState};
 UiM_t_pPorts  uiResponseData = {false};
 
-#if RESPONSIVE_ANALOG_READ == ON
-#include <ResponsiveAnalogRead.h>
-ResponsiveAnalogRead ResponsiveAnalogs[N_ANALOG_CHANNELS];
-#endif
+
 
 #if BATTERY_INDICATION == ON
 #include <BatteryIndication.h>
@@ -51,37 +48,22 @@ int freeRam ()
 }
 
 
-// TODO: make a struct containing the responsive analog reads so that we can easily enable or disable it via if directives
 // TODO: Improve naming to enforce the concept of "remote CHANNEL input" and ordinary "remote input" (such as buttons)
-#if RESPONSIVE_ANALOG_READ == ON
-void v_initRemoteInputs(RemoteChannelInput_t* pRemoteInputs, ResponsiveAnalogRead* pRespAnalogRead)
-#else
+
 void v_initRemoteInputs(RemoteChannelInput_t* pRemoteInputs)
-#endif
 {
   // Remote CHANNEL inputs
   uint8_t i;
   for(i = 0; i < N_CHANNELS; i++)
   {
-    pinMode(RemoteInputs[i].u8_Pin,    RemoteInputs[i].b_Analog ? INPUT : INPUT_PULLUP);
-#if RESPONSIVE_ANALOG_READ == ON
-    if(RemoteInputs[i].b_Analog) // Only start responsive analogs for analog inputs.
-    {
-      ResponsiveAnalogs[i].begin(RemoteInputs[i].u8_Pin, true);
-    }
-#endif
+    pinMode(pRemoteInputs[i].u8_Pin,    pRemoteInputs[i].b_Analog ? INPUT : INPUT_PULLUP);
   }
 
   // UI Management input initialization
   pinMode(INPUT_BUTTON_LEFT_PIN,   INPUT_PULLUP);
   pinMode(INPUT_BUTTON_RIGHT_PIN,  INPUT_PULLUP);
   pinMode(INPUT_BUTTON_SELECT_PIN, INPUT_PULLUP);
-  // Remote input 
-  // pinMode(BUTTON_ANALOG_PIN, INPUT);
-  
-  // On the first version of Remote Controller, necessary for POT RIGHT to work.
-  // pinMode(POT_RIGHT_ACTIVATE_PIN, OUTPUT);
-  // digitalWrite(POT_RIGHT_ACTIVATE_PIN, HIGH);
+
 }
 
 boolean b_initRadio(RF24* pRadio)
@@ -140,11 +122,8 @@ void v_readButtons(UiM_t_Inputs* pInputs)
 }
 
 
-#if RESPONSIVE_ANALOG_READ == ON
-void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput, ResponsiveAnalogRead* pRespAnalogRead)
-#else
+
 void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput)
-#endif
 {
   uint8_t i;
   for(i = 0; i < N_CHANNELS; i++)
@@ -152,6 +131,7 @@ void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput)
     if(pRemoteChannelInput[i].b_Analog)
     {
       pRemoteChannelInput[i].u16_Value = (uint16_t)analogRead(pRemoteChannelInput[i].u8_Pin);
+      v_smoothAnalogEMA(&pRemoteChannelInput[i], i); // For now, raw value is also smoothend
       pRemoteChannelInput[i].u16_RawValue = pRemoteChannelInput[i].u16_Value; // Save raw value before any processing 
       if(pRemoteChannelInput[i].b_expControl)
       {
@@ -160,10 +140,6 @@ void v_readChannelInputs(RemoteChannelInput_t *const pRemoteChannelInput)
       v_invertInput(&pRemoteChannelInput[i]); // Invertion of analog channels msut be processed before trimming and endpoint
       v_processTrimming(&pRemoteChannelInput[i]); // Trimming is processed before adjustment to ensure trim offset doesn't overload the min-max values
       v_processEndpointAdjustment(&pRemoteChannelInput[i]);
-#if RESPONSIVE_ANALOG_READ == ON
-      pRespAnalogRead[i].update(pRemoteChannelInput[i].u16_Value);
-      pRemoteChannelInput[i].u16_Value = pRespAnalogRead[i].getValue();
-#endif
     }
     else
     {
@@ -213,6 +189,13 @@ void v_applyExponential(uint16_t* rawInput) // TODO: have this take the remotech
   normalizedValue = normalizedValue * abs(normalizedValue) * (EXPONENTIAL_VALUE * (1.0 - abs(normalizedValue)) + abs(normalizedValue));
   v_toRaw(normalizedValue, rawInput);
 } 
+
+void v_smoothAnalogEMA(RemoteChannelInput_t* pInput, uint8_t channelIdx)
+{
+  static uint16_t average[N_CHANNELS];
+  average[channelIdx] = EMA_ALPHA_VALUE * pInput->u16_Value + (1 - EMA_ALPHA_VALUE) * average[channelIdx]; // Still unsure if this is an improvement, but looks better with not much delay.
+  pInput->u16_Value = average[channelIdx];
+}
 
 void v_buildPayload(const RemoteChannelInput_t* pRemoteChannelInput, RFPayload* pPayload)
 {
@@ -278,11 +261,7 @@ void setup()
   Serial.begin(115200);
   Serial.print(freeRam()); // TODO: Halt program, use u8x8 instead and display a msg on the screen
   Serial.print(F("Bytes\n"));
-#if RESPONSIVE_ANALOG_READ == ON
-  v_initRemoteInputs(RemoteInputs, ResponsiveAnalogs);
-#else
   v_initRemoteInputs(RemoteInputs);
-#endif
   boolean b_initRadioSuccess = b_initRadio(&Radio);
   // TODO: Display a msg on screen if radio wasn't properly initialized
   
@@ -295,11 +274,8 @@ void setup()
 void loop() 
 {
 
-#if RESPONSIVE_ANALOG_READ == ON
-  v_readChannelInputs(RemoteInputs, ResponsiveAnalogs);
-#else
+
   v_readChannelInputs(RemoteInputs);
-#endif
 
   if(uiResponseData.analogSendAllowed)
   {

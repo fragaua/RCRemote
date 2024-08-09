@@ -121,6 +121,8 @@
 
 #define EXPONENTIAL_VALUE 0.9f
 
+#define EMA_ALPHA_VALUE   0.85f // Smoothing factor for the EMA smoothing function
+
 
 /* Radio configuration */ // TODO: Add here other configurations like PA level and data rate
 #define TX_TIMEOUT    5000 // in milliseconds. Time to trigger "No communication" on screen
