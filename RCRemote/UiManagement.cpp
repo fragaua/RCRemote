@@ -292,7 +292,7 @@ static void buildCommunicationString(bool connectionDropped, unsigned long txTim
 
 static void buildEndpointPercentageString(uint16_t endpointAdjustmentValue, char* endpointAdjustmentStr)
 {
-    snprintf(endpointAdjustmentStr, MAX_NR_CHARS, "%u%%", (abs(((int16_t)endpointAdjustmentValue-ANALOG_HALF_VALUE))*100)/ANALOG_HALF_VALUE);
+    snprintf(endpointAdjustmentStr, MAX_NR_CHARS, "%d%%", (abs(((int32_t)endpointAdjustmentValue-ANALOG_HALF_VALUE))*100)/ANALOG_HALF_VALUE);
 }
 
 
