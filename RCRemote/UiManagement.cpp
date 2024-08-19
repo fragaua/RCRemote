@@ -43,6 +43,7 @@ Component_t_Data componentInputData;
 
 Component_t_Text configurationMainTitle;
 Component_t_Text configurationSubTitle;       
+Component_t_Text endpointPercentage;       
 
 UiC_ErrorType error;
 
@@ -66,6 +67,7 @@ static void v_UiM_processPageChange();
 
 /**  Project Specific functions  **/ // Todo: eventually we can have a separate project specific file.
 static void buildCommunicationString(bool connectionDropped, unsigned long txTime, char* commStateString);
+static void buildEndpointPercentageString(uint16_t endpointAdjustmentValue, char* endpointAdjustmentStr);
 static void switchToConfigurationOptionsPage(void* selectedChannelIdx);
 static void switchToConfigurationPage(void* selectedConfigurationIdx);
 static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateNextValueButton);
@@ -109,7 +111,8 @@ void v_UiM_init(UiM_t_rPorts* pReceiverPorts, UiM_t_pPorts* pProviderPorts)
     e_UiC_addComponent((Component_t*)&(options[1]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 27, "EndPoint",  (void*) switchToConfigurationPage});
     e_UiC_addComponent((Component_t*)&(options[2]),            &optionsPage,    UIC_COMPONENT_MENU_ITEM, {3, 34, "Invert",   (void*) switchToConfigurationPage});
     e_UiC_addComponent((Component_t*)&(configurationMainTitle),&configurationPage,  UIC_COMPONENT_TEXT, {55, 5, ""});
-    e_UiC_addComponent((Component_t*)&(configurationSubTitle), &configurationPage,  UIC_COMPONENT_TEXT, {60, 15, ""});
+    e_UiC_addComponent((Component_t*)&(configurationSubTitle), &configurationPage,  UIC_COMPONENT_TEXT, {55, 15, ""});
+    e_UiC_addComponent((Component_t*)&(endpointPercentage),    &configurationPage,  UIC_COMPONENT_TEXT, {60, 40, "25%%"});
 
     
 
@@ -287,6 +290,11 @@ static void buildCommunicationString(bool connectionDropped, unsigned long txTim
     }
 }
 
+static void buildEndpointPercentageString(uint16_t endpointAdjustmentValue, char* endpointAdjustmentStr)
+{
+    snprintf(endpointAdjustmentStr, MAX_NR_CHARS, "%u%%", (abs(((int16_t)endpointAdjustmentValue-ANALOG_HALF_VALUE))*100)/ANALOG_HALF_VALUE);
+}
+
 
 static void switchToConfigurationOptionsPage(void* selectedChannelIdx)
 {
@@ -315,6 +323,7 @@ static void switchToConfigurationPage(void* selectedConfigurationIdx)
 static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateNextValueButton) // TODO: This could easily be a smaller function
 {
     // TODO: have one or two values depending on the selected configuration.
+    char            endpointPercentageString[MAX_NR_CHARS];
     uint32_t        updateValue;
     static uint16_t lastValueBeforeUpdating = (*adjustmentWheel);
     static bool     updateNextValue         = false;
@@ -374,6 +383,8 @@ static void updateAdjustmentMonitors(uint16_t* adjustmentWheel, uint16_t updateN
         }
 
         v_UiC_updateComponent((Component_t*) &(adjustmentBar), (void*) (&updateValue));
+        buildEndpointPercentageString(*adjustmentWheel, endpointPercentageString);
+        v_UiC_updateComponent((Component_t*) &(endpointPercentage), (void*) endpointPercentageString);
     }
     else
     {

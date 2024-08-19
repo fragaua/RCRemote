@@ -70,7 +70,6 @@ boolean b_initRadio(RF24* pRadio)
 {
   *pRadio = RF24(RF24_CE_PIN, RF24_CSN_PIN);
   bool b_Success = pRadio->begin();
-
   if(b_Success)
   {
     // Radio.setAutoAck(false); // Making sure auto ack isn't ON to ensure we can properly calcualte timeouts
@@ -78,7 +77,6 @@ boolean b_initRadio(RF24* pRadio)
     pRadio->setPayloadSize(sizeof(RFPayload));
     pRadio->openWritingPipe(RF_Address); 
     pRadio->stopListening(); // Turn on TX Mode
-    pRadio->printPrettyDetails();  
   }
   else
   {
@@ -266,14 +264,12 @@ void setup()
   // TODO: Display a msg on screen if radio wasn't properly initialized
   
   v_UiM_init(&uiInputData, &uiResponseData);
-  Radio.printDetails();
 
 }
 
 
 void loop() 
 {
-
 
   v_readChannelInputs(RemoteInputs);
 
